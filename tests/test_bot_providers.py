@@ -167,7 +167,8 @@ class TestStreamInput:
         assert content[1]["source"]["media_type"] == "image/png"
         assert content[2]["text"] == "what is this?"
 
-    def test_argv_switches_to_stream_input(self):
+    def test_argv_switches_to_stream_input(self, monkeypatch):
+        monkeypatch.setattr("ComfyArt.bot.claude_code.resolve_claude_command", lambda: ["claude"])
         from ComfyArt.bot.claude_code import ClaudeCodeProvider
         from ComfyArt.bot.providers import TurnRequest
         provider = ClaudeCodeProvider(home_dir=".")
@@ -183,7 +184,8 @@ class TestStreamInput:
 
 
 class TestModelOverride:
-    def test_claude_argv_model(self):
+    def test_claude_argv_model(self, monkeypatch):
+        monkeypatch.setattr("ComfyArt.bot.claude_code.resolve_claude_command", lambda: ["claude"])
         from ComfyArt.bot.claude_code import ClaudeCodeProvider
         from ComfyArt.bot.providers import TurnRequest
         provider = ClaudeCodeProvider(home_dir=".")
@@ -254,4 +256,3 @@ class TestModelOverride:
         assert resp.status == 200
         await _wait_done(client, chat["id"])
         assert fake_provider.last_turn.model == ""
-

@@ -1,2 +1,4 @@
 pypdfium2
 rapidocr
+onnxruntime>=1.20
+tomli; python_version < "3.11"

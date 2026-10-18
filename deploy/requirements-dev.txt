@@ -1,0 +1,6 @@
+-r ../requirements.txt
+pytest>=8.4
+pytest-asyncio>=1
+aiohttp>=3.11.8
+Pillow>=10.1
+SQLAlchemy>=2

@@ -1,0 +1,23 @@
+{
+  "comfyart": {
+    "repository": "https://github.com/jtydhr88/ComfyArt",
+    "commit": "aad271e6d14560eadfe9f2d8e04ded38042da9f9"
+  },
+  "comfyui": {
+    "repository": "https://github.com/Comfy-Org/ComfyUI",
+    "commit": "14b05228cef127ce529bc0c08660770d4af3e9a8",
+    "archive_sha256": "c13ea8ea841312616cf5e54a9a758cc06c8b3997d43aad7ced4e5e9658421c99",
+    "source_snapshot": "5090:D:/ComfyUI"
+  },
+  "runtime_root": "F:\\ComfyArt",
+  "ssh_alias": "5090",
+  "runtime": {
+    "reserve_vram_gb": 4,
+    "disable_pinned_memory": true,
+    "disable_async_offload": true,
+    "disable_cuda_malloc": true,
+    "node_cache": "none",
+    "ollama_keep_alive": 0,
+    "ollama_context_length": 16384
+  }
+}

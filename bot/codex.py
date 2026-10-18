@@ -11,7 +11,7 @@ from typing import Optional
 try:
     import tomllib
 except ImportError:
-    tomllib = None
+    import tomli as tomllib
 
 from ._cli_common import (
     AGENT_GUIDE,

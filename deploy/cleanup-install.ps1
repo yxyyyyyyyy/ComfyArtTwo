@@ -1,4 +1,8 @@
 $root = 'F:\ComfyArt'
+$installers = Get-CimInstance Win32_Process | Where-Object {
+    $_.Name -eq 'python.exe' -and $_.CommandLine -match 'F:\\ComfyArt\\scripts\\(install-features|download-runtime|download_models)\.py'
+}
+if ($installers) { throw 'A ComfyArt model/runtime installer is still running; keep its resume cache' }
 foreach ($required in @('models-verified.json','agent-verified.json','video-lora-verified.json')) {
     if (!(Test-Path "$root\artifacts\$required")) { throw "Missing verification record: $required" }
 }
@@ -6,6 +10,8 @@ $queue = Invoke-RestMethod http://127.0.0.1:8188/queue
 if ($queue.queue_running.Count -or $queue.queue_pending.Count) { throw 'Wait for the ComfyArt queue to finish before cleanup' }
 Stop-ScheduledTask -TaskName 'ComfyArt-Models' -ErrorAction SilentlyContinue
 Unregister-ScheduledTask -TaskName 'ComfyArt-Models' -Confirm:$false -ErrorAction SilentlyContinue
+Stop-ScheduledTask -TaskName 'ComfyArt-Features' -ErrorAction SilentlyContinue
+Unregister-ScheduledTask -TaskName 'ComfyArt-Features' -Confirm:$false -ErrorAction SilentlyContinue
 foreach ($directory in @('D:\ComfyArt-download-cache','D:\ComfyArt-upload-cache')) {
     if (Test-Path $directory) { Remove-Item $directory -Recurse -Force }
 }

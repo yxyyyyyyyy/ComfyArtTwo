@@ -21,13 +21,13 @@ FILES = ["diffusion_models/z_image_turbo_bf16.safetensors",
          "text_encoders/qwen_3_4b.safetensors", "vae/ae.safetensors"]
 
 
-def download(name, revision, metadata, mirror):
-    target = ROOT / "ComfyUI" / "models" / name
+def download(name, revision, metadata, mirror, *, destination=None):
+    target = Path(destination) if destination is not None else ROOT / "ComfyUI" / "models" / name
     target.parent.mkdir(parents=True, exist_ok=True)
     partial = target.with_suffix(target.suffix + ".part")
     expected = metadata["lfs"]["sha256"]
     size = metadata["lfs"]["size"]
-    if mirror["Sha256"] != expected or mirror["Size"] != size:
+    if mirror and (mirror["Sha256"] != expected or mirror["Size"] != size):
         raise RuntimeError(f"Mirror artifact does not match official SHA256: {name}")
     if not target.exists():
         chunks = DOWNLOAD_CACHE / (target.name + ".chunks")
@@ -46,7 +46,12 @@ def download(name, revision, metadata, mirror):
             temp = saved.with_suffix(".tmp")
             for attempt in range(8):
                 try:
-                    url = f"https://modelscope.cn/models/{REPO}/resolve/{mirror['Revision']}/{mirror['Path']}"
+                    if metadata.get("url"):
+                        url = metadata["url"]
+                    elif mirror:
+                        url = f"https://modelscope.cn/models/{REPO}/resolve/{mirror['Revision']}/{mirror['Path']}"
+                    else:
+                        url = f"{ENDPOINT}/{REPO}/resolve/{revision}/{metadata['rfilename']}"
                     with SESSION.get(url, headers={"Range": f"bytes={start}-{end}"}, stream=True, timeout=(30, 120)) as response:
                         response.raise_for_status()
                         if response.status_code != 206 or not response.headers.get("Content-Range", "").startswith(f"bytes {start}-{end}/"):
@@ -93,7 +98,8 @@ def download(name, revision, metadata, mirror):
         chunks.rmdir()
     print(f"Verified {name}: {digest}", flush=True)
     return {"path": name, "bytes": size, "sha256": digest, "repository": REPO, "revision": revision,
-            "download_mirror": "modelscope.cn", "mirror_revision": mirror["Revision"]}
+            "download_mirror": "modelscope.cn" if mirror else metadata.get("url", ENDPOINT),
+            "mirror_revision": mirror["Revision"] if mirror else revision}
 
 
 if __name__ == "__main__":

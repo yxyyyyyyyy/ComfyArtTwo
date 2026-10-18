@@ -246,13 +246,13 @@
   "105:125": {
     "class_type": "PrimitiveInt",
     "inputs": {
-      "value": 6
+      "value": 8
     }
   },
   "105:126": {
     "class_type": "PrimitiveBoolean",
     "inputs": {
-      "value": false
+      "value": true
     }
   }
 }

@@ -188,7 +188,7 @@ export async function layersGraph(image: string, layers: number, prompt: string)
 }
 
 const snap32 = (v: number) => Math.max(32, Math.round(v / 32) * 32)
-export const VIDEO_AREAS: Record<string, number> = { '768p': 1344 * 768, '1080p': 1920 * 1088 }
+export const VIDEO_AREAS: Record<string, number> = { '768p': 1344 * 768, '512p': 896 * 512, '1080p': 1920 * 1088 }
 const H3_AREA = VIDEO_AREAS['768p']
 
 export function videoSize(aspect: number, area = H3_AREA): [number, number] {

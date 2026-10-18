@@ -1,0 +1,20 @@
+[
+  {
+    "name": "torch-2.11.0+cu130-cp312-cp312-win_amd64.whl",
+    "url": "https://download.pytorch.org/whl/cu130/torch-2.11.0%2Bcu130-cp312-cp312-win_amd64.whl",
+    "sha256": "ef8beae16d781c3244ef28dc7bee6d8871c26bbde65d5bf66e902cb61972c4ab",
+    "size": 1915224818
+  },
+  {
+    "name": "torchvision-0.26.0+cu130-cp312-cp312-win_amd64.whl",
+    "url": "https://download.pytorch.org/whl/cu130/torchvision-0.26.0%2Bcu130-cp312-cp312-win_amd64.whl",
+    "sha256": "a3578f7c8e8a2724306c68c56873a1675fa7ce45471e18235c720a2ed242fe44",
+    "size": 8885056
+  },
+  {
+    "name": "torchaudio-2.11.0+cu130-cp312-cp312-win_amd64.whl",
+    "url": "https://download.pytorch.org/whl/cu130/torchaudio-2.11.0%2Bcu130-cp312-cp312-win_amd64.whl",
+    "sha256": "f74949f9ace1e4a6cf9468bdb3211b9cfa0af6ea348125471ac71c8621d6c77d",
+    "size": 1722734
+  }
+]

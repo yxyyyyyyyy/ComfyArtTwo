@@ -20,4 +20,5 @@ with tempfile.TemporaryDirectory() as directory:
     encoded = base64.b64encode(command.encode("utf-16le")).decode()
     subprocess.run(["ssh", "5090", "powershell -NoProfile -EncodedCommand " + encoded], check=True)
     subprocess.run(["scp", str(archive), "5090:F:/ComfyArt/source.zip"], check=True)
+    subprocess.run(["scp", str(root / "engine" / "inpaint-source.tar.gz"), "5090:F:/ComfyArt/inpaint-source.tar.gz"], check=True)
     print(f"Uploaded {archive.stat().st_size:,} bytes to F:\\ComfyArt\\source.zip")

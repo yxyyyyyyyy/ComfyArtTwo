@@ -5,9 +5,18 @@
   },
   "comfyui": {
     "repository": "https://github.com/Comfy-Org/ComfyUI",
-    "commit": "14b05228cef127ce529bc0c08660770d4af3e9a8",
-    "archive_sha256": "c13ea8ea841312616cf5e54a9a758cc06c8b3997d43aad7ced4e5e9658421c99",
-    "source_snapshot": "5090:D:/ComfyUI"
+    "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+    "archive_sha256": "592389d8add06c8e8abe98ce411a59f4b01a1aff47df837c5f7558ea459b2fbd",
+    "tag": "v0.41.0",
+    "archive": "engine/comfyui-0.41.0-source.tar.gz",
+    "patches": [
+      {
+        "path": "deploy/patches/disable-direct-file-transfer.patch",
+        "sha256": "6099fc75540937372b9052b0100cec9ef84cf38c7d1caf2c4d1d932b935982b8",
+        "reason": "Honor --disable-fast-disk in tensor file transfers; bypass native aimdo reader that fails on consecutive Windows jobs",
+        "upstream_issue": "https://github.com/Comfy-Org/comfy-aimdo/issues/61"
+      }
+    ]
   },
   "runtime_root": "F:\\ComfyArt",
   "ssh_alias": "5090",
@@ -18,6 +27,19 @@
     "disable_cuda_malloc": true,
     "node_cache": "none",
     "ollama_keep_alive": 0,
-    "ollama_context_length": 16384
+    "ollama_context_length": 16384,
+    "torch": "2.11.0+cu130",
+    "torchvision": "0.26.0+cu130",
+    "torchaudio": "2.11.0+cu130",
+    "minimax_turbo_steps": 8,
+    "disable_fast_disk": true
+  },
+  "custom_nodes": {
+    "comfyui-inpaint-nodes": {
+      "repository": "https://github.com/Acly/comfyui-inpaint-nodes",
+      "commit": "5b7681746fe19e563113d27366ba85236bc1ba5b",
+      "archive": "engine/inpaint-source.tar.gz",
+      "archive_sha256": "cf10ade893e348242cd755a9877bda158d144651050716d0a689e32889913186"
+    }
   }
 }

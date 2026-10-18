@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:frontend": "node --experimental-vm-modules --test tests/frontend-models.test.mjs tests/frontend-workflows.test.mjs"
   },
   "dependencies": {
     "@tiptap/core": "^3.32.0",

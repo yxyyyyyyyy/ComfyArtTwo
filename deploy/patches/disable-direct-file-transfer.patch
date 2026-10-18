@@ -1,0 +1,21 @@
+diff --git a/comfy/memory_management.py b/comfy/memory_management.py
+index e032b7d..732f70d 100644
+--- a/comfy/memory_management.py
++++ b/comfy/memory_management.py
+@@ -5,6 +5,7 @@ import torch
+ from typing import NamedTuple
+ 
+ import comfy_aimdo.host_buffer
++from comfy.cli_args import args
+ from comfy.quant_ops import QuantizedTensor
+ 
+ 
+@@ -16,6 +17,8 @@ class TensorFileSlice(NamedTuple):
+ 
+ 
+ def read_tensor_file_slice_into(tensor, destination, stream=None, destination2=None):
++    if args.disable_fast_disk:
++        return False
+ 
+     if isinstance(tensor, QuantizedTensor):
+         if not read_tensor_file_slice_into(tensor._qdata,

@@ -13,7 +13,7 @@ import { MAX_VIDEO_REF_KINDS } from './workflows'
 import { type ErrorSink, errorText, fileSrc, jobOf, mediaAsset, resultsAtom } from './jobs'
 import { describeItem, itemImages, libraryAtom, linkedKit } from './library'
 import { correct, forget, memoryAtom, remember } from './memory'
-import { agentModels } from './models'
+import { agentModels, isInstalled, videoCapabilitiesAtom } from './models'
 import { buildSlides } from './slides'
 import { exportImage } from './shapes/ArtboardShape'
 import { COMMENT } from './shapes/CommentShape'
@@ -244,10 +244,13 @@ const HANDLERS: Record<string, Handler> = {
     const { blob, width, height } = await exportImage(editor, ids, { format: 'png', background: true, scale: Math.min(1, maxPx / Math.max(bounds.w, bounds.h)) })
     return { width, height, bounds: { x: Math.round(bounds.x), y: Math.round(bounds.y), width: Math.round(bounds.w), height: Math.round(bounds.h) }, png: await blobBase64(blob) }
   },
-  list_models: () => ({
-    image: agentModels(false).map((m) => ({ id: m.id, label: m.label, desc: m.desc, accepts_refs: !!m.refs, ratios: RATIOS })),
-    video: agentModels(true).map((m) => ({ id: m.id, label: m.label, desc: m.desc, accepts_first_frame: true, max_reference_images: MAX_VIDEO_REF_KINDS.image, max_reference_videos: MAX_VIDEO_REF_KINDS.video, max_reference_audios: MAX_VIDEO_REF_KINDS.audio, motion_control: true, lip_sync: true, ratios: VIDEO_RATIOS, durations: DURATIONS })),
-  }),
+  list_models: () => {
+    const capabilities = videoCapabilitiesAtom.get()
+    return {
+      image: agentModels(false).filter((m) => isInstalled(m.id)).map((m) => ({ id: m.id, label: m.label, desc: m.desc, accepts_refs: !!m.refs, ratios: RATIOS })),
+      video: agentModels(true).filter((m) => isInstalled(m.id)).map((m) => ({ id: m.id, label: m.label, desc: m.desc, accepts_first_frame: true, max_reference_images: capabilities.references ? MAX_VIDEO_REF_KINDS.image : 0, max_reference_videos: capabilities.references ? MAX_VIDEO_REF_KINDS.video : 0, max_reference_audios: capabilities.references ? MAX_VIDEO_REF_KINDS.audio : 0, motion_control: capabilities.motion, lip_sync: true, ratios: VIDEO_RATIOS, durations: DURATIONS })),
+    }
+  },
   brand_kits: (editor) => {
     const linked = linkedKit(editor.getDocumentSettings().meta.brandKit)
     return {
@@ -456,4 +459,3 @@ export function registerCommandBus(editor: Editor, project: string, isStale: () 
       .then((result) => reply({ ok: true, result }), (e) => reply({ ok: false, error: errorText(e) }))
   })
 }
-

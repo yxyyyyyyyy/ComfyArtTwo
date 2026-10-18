@@ -1,0 +1,164 @@
+{
+  "cutout": [
+    {
+      "repository": "Comfy-Org/BiRefNet",
+      "revision": "25511f8787e51912e1480706b4e47b8f467fbf72",
+      "target": "background_removal/birefnet.safetensors",
+      "metadata": {
+        "rfilename": "background_removal/birefnet.safetensors",
+        "lfs": {
+          "sha256": "9ab37426bf4de0567af6b5d21b16151357149139362e6e8992021b8ce356a154",
+          "size": 444473596,
+          "pointerSize": 134
+        }
+      },
+      "mirror": {
+        "CommitMessage": "Rename clip_vision/birefnet.safetensors to background_removal/birefnet.safetensors (batch 1/1)",
+        "CommittedDate": 1778295740,
+        "CommitterName": "systemd",
+        "InCheck": false,
+        "IsLFS": true,
+        "Mode": "33188",
+        "Name": "birefnet.safetensors",
+        "Path": "background_removal/birefnet.safetensors",
+        "Revision": "bb8d5429c507a7ed61daea6a5c572172d6594aa1",
+        "Sha256": "9ab37426bf4de0567af6b5d21b16151357149139362e6e8992021b8ce356a154",
+        "Size": 444473596,
+        "Type": "blob"
+      }
+    }
+  ],
+  "upscale": [
+    {
+      "repository": "Kim2091/UltraSharp",
+      "revision": "920fe218c211f831b43cb30327f203e2b59f5dab",
+      "target": "upscale_models/4x-UltraSharp.pth",
+      "metadata": {
+        "rfilename": "4x-UltraSharp.pth",
+        "lfs": {
+          "sha256": "a5812231fc936b42af08a5edba784195495d303d5b3248c24489ef0c4021fe01",
+          "size": 66961958,
+          "pointerSize": 133
+        }
+      },
+      "mirror": null
+    }
+  ],
+  "qwen-edit": [
+    {
+      "repository": "Comfy-Org/Qwen-Image-2.1",
+      "revision": "a8342359c61979b06a8dafb1a47991fe1f30e994",
+      "target": "diffusion_models/qwen_image_2.1_int8_convrot.safetensors",
+      "metadata": {
+        "rfilename": "diffusion_models/qwen_image_2.1_int8_convrot.safetensors",
+        "lfs": {
+          "sha256": "cb74113cb03faecd79611b01fd7fd642f0aa60d6f0b95086abee214d75eaa57d",
+          "size": 7256783064,
+          "pointerSize": 135
+        }
+      },
+      "mirror": {
+        "CommitMessage": "Upload folder using ModelScope SDK (batch 1/1)",
+        "CommittedDate": 1789904997,
+        "CommitterName": "systemd",
+        "InCheck": false,
+        "IsLFS": true,
+        "Mode": "33188",
+        "Name": "qwen_image_2.1_int8_convrot.safetensors",
+        "Path": "diffusion_models/qwen_image_2.1_int8_convrot.safetensors",
+        "Revision": "5dc8a8352312860d67e07cc9bee310dc7ed3e55c",
+        "Sha256": "cb74113cb03faecd79611b01fd7fd642f0aa60d6f0b95086abee214d75eaa57d",
+        "Size": 7256783064,
+        "Type": "blob"
+      }
+    },
+    {
+      "repository": "Comfy-Org/Qwen-Image-2.1",
+      "revision": "a8342359c61979b06a8dafb1a47991fe1f30e994",
+      "target": "text_encoders/qwen3vl_8b_int8_convrot.safetensors",
+      "metadata": {
+        "rfilename": "text_encoders/qwen3vl_8b_int8_convrot.safetensors",
+        "lfs": {
+          "sha256": "8bfd0f6e12abf2d2d697ecc888e5e90b0d6741d6708f05799f53afa560452e8f",
+          "size": 9350798360,
+          "pointerSize": 135
+        }
+      },
+      "mirror": {
+        "CommitMessage": "Upload folder using ModelScope SDK (batch 1/1)",
+        "CommittedDate": 1789904997,
+        "CommitterName": "systemd",
+        "InCheck": false,
+        "IsLFS": true,
+        "Mode": "33188",
+        "Name": "qwen3vl_8b_int8_convrot.safetensors",
+        "Path": "text_encoders/qwen3vl_8b_int8_convrot.safetensors",
+        "Revision": "5dc8a8352312860d67e07cc9bee310dc7ed3e55c",
+        "Sha256": "8bfd0f6e12abf2d2d697ecc888e5e90b0d6741d6708f05799f53afa560452e8f",
+        "Size": 9350798360,
+        "Type": "blob"
+      }
+    },
+    {
+      "repository": "Comfy-Org/Qwen-Image-2.1",
+      "revision": "a8342359c61979b06a8dafb1a47991fe1f30e994",
+      "target": "vae/qwen_image_2.1_vae_bf16.safetensors",
+      "metadata": {
+        "rfilename": "vae/qwen_image_2.1_vae_bf16.safetensors",
+        "lfs": {
+          "sha256": "bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9",
+          "size": 675509688,
+          "pointerSize": 134
+        }
+      },
+      "mirror": {
+        "CommitMessage": "Upload folder using ModelScope SDK (batch 1/1)",
+        "CommittedDate": 1789904997,
+        "CommitterName": "systemd",
+        "InCheck": false,
+        "IsLFS": true,
+        "Mode": "33188",
+        "Name": "qwen_image_2.1_vae_bf16.safetensors",
+        "Path": "vae/qwen_image_2.1_vae_bf16.safetensors",
+        "Revision": "5dc8a8352312860d67e07cc9bee310dc7ed3e55c",
+        "Sha256": "bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9",
+        "Size": 675509688,
+        "Type": "blob"
+      }
+    }
+  ],
+  "erase": [
+    {
+      "repository": "Sanster/models",
+      "revision": "add_big_lama",
+      "target": "inpaint/big-lama.pt",
+      "metadata": {
+        "rfilename": "big-lama.pt",
+        "url": "https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt",
+        "lfs": {
+          "sha256": "344c77bbcb158f17dd143070d1e789f38a66c04202311ae3a258ef66667a9ea9",
+          "size": 205669692
+        }
+      },
+      "mirror": null
+    }
+  ],
+  "angles": [
+    {
+      "repository": "gribbliest/qwen-image-2.1-qma-camera-angles",
+      "revision": "13007eec2648c09529e930164c2ccc9c8c12428c",
+      "target": "loras/qwen-image-2.1-qma-camera-angles.safetensors",
+      "metadata": {
+        "rfilename": "qwen-image-2.1-qma-camera-angles.safetensors",
+        "blobId": "830cb6bc79473a08cfdeee2f8ae533f803a48a34",
+        "size": 318820224,
+        "lfs": {
+          "sha256": "ad2c20e0e103b6ad3ffffc56ab4e89c0822263c488aa4dd70e7e03091ff37b8d",
+          "size": 318820224,
+          "pointerSize": 134
+        }
+      },
+      "mirror": null
+    }
+  ]
+}

@@ -117,3 +117,30 @@ async def test_recovery_releases_only_this_comfy_service_when_idle(monkeypatch, 
     await provider._recover_memory(None, 'm', 'http://127.0.0.1:8188/comfyart/mcp')
     assert paths[0].endswith(':11435/api/generate')
     assert any(p.endswith('/free') for p in paths) is not busy
+
+
+@pytest.mark.parametrize('loaded,busy,free', [
+    (False, False, True), (False, True, False), (True, False, False),
+])
+async def test_cold_load_frees_idle_comfy_before_loading_agent(monkeypatch, loaded, busy, free):
+    provider = LocalLlmProvider(base_url=lambda: 'http://127.0.0.1:11435/v1')
+    paths = []
+    async def request(session, method, url, **kwargs):
+        paths.append(url)
+        if url.endswith('/api/ps'):
+            return {'models': [{'name': 'm'}] if loaded else []}
+        if url.endswith('/queue'):
+            return {'queue_running': [[1]] if busy else [], 'queue_pending': []}
+        return {}
+    monkeypatch.setattr(provider, '_request_json', request)
+    await provider._prepare_model(None, 'http://127.0.0.1:8188/comfyart/mcp')
+    assert any(p.endswith('/free') for p in paths) is free
+    assert not any(p.endswith('/api/generate') for p in paths)
+
+
+async def test_external_llm_has_no_automatic_resource_handoff(monkeypatch):
+    provider = LocalLlmProvider(base_url=lambda: 'http://other.example/v1')
+    async def request(*args, **kwargs):
+        pytest.fail('external endpoint must not trigger local resource control')
+    monkeypatch.setattr(provider, '_request_json', request)
+    await provider._prepare_model(None, 'http://127.0.0.1:8188/comfyart/mcp')

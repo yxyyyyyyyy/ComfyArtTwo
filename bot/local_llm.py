@@ -112,6 +112,9 @@ class LocalLlmProvider(AgentProvider):
         if not self._managed_ollama():
             return
         await self._release_ollama(session, model)
+        await self._free_idle_comfy(session, endpoint)
+
+    async def _free_idle_comfy(self, session, endpoint: str) -> None:
         url = urlsplit(endpoint)
         if url.hostname not in ('localhost', '127.0.0.1'):
             return
@@ -122,11 +125,25 @@ class LocalLlmProvider(AgentProvider):
         await self._request_json(session, 'POST', base + '/free', headers=self._mcp_headers(),
             json_body={'unload_models': True, 'free_memory': True}, timeout=15)
 
+    async def _prepare_model(self, session, endpoint: str) -> None:
+        base = self._managed_ollama()
+        if not base:
+            return
+        loaded = await self._request_json(session, 'GET', base + '/api/ps',
+            headers=self._api_headers(), timeout=10)
+        if not loaded.get('models'):
+            # Avoid CPU fallback during cold loads while an idle Comfy model is cached.
+            await self._free_idle_comfy(session, endpoint)
+
     async def _complete(self, session, model: str, messages: list, tools: list,
                         endpoint: str, emit: EmitFn) -> dict:
         body = {'model': model, 'messages': messages,
                 **({'tools': tools, 'tool_choice': 'auto'} if tools else {}),
                 'temperature': 0.2, 'max_tokens': 2048}
+        try:
+            await self._prepare_model(session, endpoint)
+        except _NET_ERRORS as prepare_error:
+            _log.warning('Agent cold-load resource handoff failed: %s', prepare_error)
         for attempt in range(2):
             try:
                 return await self._request_json(session, 'POST', self._base_url() + '/chat/completions',

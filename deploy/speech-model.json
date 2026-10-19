@@ -1,0 +1,248 @@
+{
+  "repository": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
+  "revision": "0c0e3051f131929182e2c023b9537f8b1c68adfe",
+  "license": "Apache-2.0",
+  "files": [
+    {
+      "metadata": {
+        "rfilename": "config.json",
+        "blobId": "95d74b20b7485f5dfa09d05988d6c606ec226811",
+        "size": 4908
+      },
+      "mirror": {
+        "CommitMessage": "Upload to Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice on ModelScope hub (batch 1/1)",
+        "CommittedDate": 1768984649,
+        "CommitterName": "Cherrytest",
+        "InCheck": false,
+        "IsLFS": false,
+        "Mode": "33188",
+        "Name": "config.json",
+        "Path": "config.json",
+        "Revision": "ae999bce1d1356e93686274865bc72744daab1a5",
+        "Sha256": "17a07f527a1c25ea30b4e023a184482a23d3e279d697b1dc81b1bde498d29cf9",
+        "Size": 4908,
+        "Type": "blob"
+      }
+    },
+    {
+      "metadata": {
+        "rfilename": "generation_config.json",
+        "blobId": "1872b16d4535564abf2db5d6debe6cddd82b7f2e",
+        "size": 245
+      },
+      "mirror": {
+        "CommitMessage": "Upload to Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice on ModelScope hub (batch 1/1)",
+        "CommittedDate": 1768984649,
+        "CommitterName": "Cherrytest",
+        "InCheck": false,
+        "IsLFS": false,
+        "Mode": "33188",
+        "Name": "generation_config.json",
+        "Path": "generation_config.json",
+        "Revision": "ae999bce1d1356e93686274865bc72744daab1a5",
+        "Sha256": "f1b90b4513f3b34c62851049e2492d7b4c5940daf1276f89c82b8ef04127f3aa",
+        "Size": 245,
+        "Type": "blob"
+      }
+    },
+    {
+      "metadata": {
+        "rfilename": "merges.txt",
+        "blobId": "20024bfe7c83998e9aeaf98a0cd6a2ce6306c2f0",
+        "size": 1671839
+      },
+      "mirror": {
+        "CommitMessage": "Upload to Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice on ModelScope hub (batch 1/1)",
+        "CommittedDate": 1768984649,
+        "CommitterName": "Cherrytest",
+        "InCheck": false,
+        "IsLFS": true,
+        "Mode": "33188",
+        "Name": "merges.txt",
+        "Path": "merges.txt",
+        "Revision": "ae999bce1d1356e93686274865bc72744daab1a5",
+        "Sha256": "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3",
+        "Size": 1671839,
+        "Type": "blob"
+      }
+    },
+    {
+      "metadata": {
+        "rfilename": "model.safetensors",
+        "blobId": "c01bc81874a6a96fb082d716ce06c87420f01ece",
+        "size": 3833402552,
+        "lfs": {
+          "sha256": "38b1d5971bdbd982b561cccec982669a53b0537c3cf5e9bd4778ed07bb2f5137",
+          "size": 3833402552,
+          "pointerSize": 135
+        }
+      },
+      "mirror": {
+        "CommitMessage": "Upload to Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice on ModelScope hub (batch 1/1)",
+        "CommittedDate": 1768984649,
+        "CommitterName": "Cherrytest",
+        "InCheck": false,
+        "IsLFS": true,
+        "Mode": "33188",
+        "Name": "model.safetensors",
+        "Path": "model.safetensors",
+        "Revision": "ae999bce1d1356e93686274865bc72744daab1a5",
+        "Sha256": "38b1d5971bdbd982b561cccec982669a53b0537c3cf5e9bd4778ed07bb2f5137",
+        "Size": 3833402552,
+        "Type": "blob"
+      }
+    },
+    {
+      "metadata": {
+        "rfilename": "preprocessor_config.json",
+        "blobId": "0525dd953bb9241912f7147666f0d535165d5d4f",
+        "size": 127
+      },
+      "mirror": {
+        "CommitMessage": "Upload to Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice on ModelScope hub (batch 1/1)",
+        "CommittedDate": 1768984649,
+        "CommitterName": "Cherrytest",
+        "InCheck": false,
+        "IsLFS": false,
+        "Mode": "33188",
+        "Name": "preprocessor_config.json",
+        "Path": "preprocessor_config.json",
+        "Revision": "ae999bce1d1356e93686274865bc72744daab1a5",
+        "Sha256": "efdde1022ea9d76928bf7a9cd53139138f5ba2e466e837f08f6105ab1af1c119",
+        "Size": 127,
+        "Type": "blob"
+      }
+    },
+    {
+      "metadata": {
+        "rfilename": "speech_tokenizer/config.json",
+        "blobId": "06cc8dc4c5ec8a1929086b71b98c313020d9268b",
+        "size": 2336
+      },
+      "mirror": {
+        "CommitMessage": "Upload to Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice on ModelScope hub (batch 1/1)",
+        "CommittedDate": 1768984649,
+        "CommitterName": "Cherrytest",
+        "InCheck": false,
+        "IsLFS": false,
+        "Mode": "33188",
+        "Name": "config.json",
+        "Path": "speech_tokenizer/config.json",
+        "Revision": "ae999bce1d1356e93686274865bc72744daab1a5",
+        "Sha256": "ee65bb901c876664ab8707c487157aa1a6ee57c65969b28fb5ec9dc211e68167",
+        "Size": 2336,
+        "Type": "blob"
+      }
+    },
+    {
+      "metadata": {
+        "rfilename": "speech_tokenizer/configuration.json",
+        "blobId": "ab58e2eaf53cd14a1a2a7527d9261ceea93a24cd",
+        "size": 76
+      },
+      "mirror": {
+        "CommitMessage": "Upload to Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice on ModelScope hub (batch 1/1)",
+        "CommittedDate": 1768984649,
+        "CommitterName": "Cherrytest",
+        "InCheck": false,
+        "IsLFS": false,
+        "Mode": "33188",
+        "Name": "configuration.json",
+        "Path": "speech_tokenizer/configuration.json",
+        "Revision": "ae999bce1d1356e93686274865bc72744daab1a5",
+        "Sha256": "6bc26d64eb5024b4d1dab5a52371958b429256d6c9d59787f1f5294a54e0cebd",
+        "Size": 76,
+        "Type": "blob"
+      }
+    },
+    {
+      "metadata": {
+        "rfilename": "speech_tokenizer/model.safetensors",
+        "blobId": "026d66bfb5d730dcfd56450c5e9e51b3ef4e0712",
+        "size": 682293092,
+        "lfs": {
+          "sha256": "836b7b357f5ea43e889936a3709af68dfe3751881acefe4ecf0dbd30ba571258",
+          "size": 682293092,
+          "pointerSize": 134
+        }
+      },
+      "mirror": {
+        "CommitMessage": "Upload to Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice on ModelScope hub (batch 1/1)",
+        "CommittedDate": 1768984649,
+        "CommitterName": "Cherrytest",
+        "InCheck": false,
+        "IsLFS": true,
+        "Mode": "33188",
+        "Name": "model.safetensors",
+        "Path": "speech_tokenizer/model.safetensors",
+        "Revision": "ae999bce1d1356e93686274865bc72744daab1a5",
+        "Sha256": "836b7b357f5ea43e889936a3709af68dfe3751881acefe4ecf0dbd30ba571258",
+        "Size": 682293092,
+        "Type": "blob"
+      }
+    },
+    {
+      "metadata": {
+        "rfilename": "speech_tokenizer/preprocessor_config.json",
+        "blobId": "ba40914f4f49ab98a8ca545d4892ef7291a39592",
+        "size": 234
+      },
+      "mirror": {
+        "CommitMessage": "Upload to Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice on ModelScope hub (batch 1/1)",
+        "CommittedDate": 1768984649,
+        "CommitterName": "Cherrytest",
+        "InCheck": false,
+        "IsLFS": false,
+        "Mode": "33188",
+        "Name": "preprocessor_config.json",
+        "Path": "speech_tokenizer/preprocessor_config.json",
+        "Revision": "ae999bce1d1356e93686274865bc72744daab1a5",
+        "Sha256": "fcb3805e597e786d4067706e602f6688524640f8d3396790e2e09b5942fcbdfb",
+        "Size": 234,
+        "Type": "blob"
+      }
+    },
+    {
+      "metadata": {
+        "rfilename": "tokenizer_config.json",
+        "blobId": "6ff9fd60cc623bb54bbd603cbd418c97a11528d7",
+        "size": 7344
+      },
+      "mirror": {
+        "CommitMessage": "Upload to Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice on ModelScope hub (batch 1/1)",
+        "CommittedDate": 1768984649,
+        "CommitterName": "Cherrytest",
+        "InCheck": false,
+        "IsLFS": false,
+        "Mode": "33188",
+        "Name": "tokenizer_config.json",
+        "Path": "tokenizer_config.json",
+        "Revision": "ae999bce1d1356e93686274865bc72744daab1a5",
+        "Sha256": "dc3c31c3bdaedd5016382bb3cbe07323026775ad51f5a4fb564505992ae4a670",
+        "Size": 7344,
+        "Type": "blob"
+      }
+    },
+    {
+      "metadata": {
+        "rfilename": "vocab.json",
+        "blobId": "4783fe10ac3adce15ac8f358ef5462739852c569",
+        "size": 2776833
+      },
+      "mirror": {
+        "CommitMessage": "Upload to Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice on ModelScope hub (batch 1/1)",
+        "CommittedDate": 1768984649,
+        "CommitterName": "Cherrytest",
+        "InCheck": false,
+        "IsLFS": true,
+        "Mode": "33188",
+        "Name": "vocab.json",
+        "Path": "vocab.json",
+        "Revision": "ae999bce1d1356e93686274865bc72744daab1a5",
+        "Sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
+        "Size": 2776833,
+        "Type": "blob"
+      }
+    }
+  ]
+}

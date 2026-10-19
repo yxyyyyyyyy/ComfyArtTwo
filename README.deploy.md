@@ -89,3 +89,18 @@ python3 deploy/smoke-features.py video i2v
 现有旧引擎可运行 `deploy/upgrade-engine.ps1` 升级到锁定的 0.41.0。CUDA 13 运行库的官方文件与摘要记录在 `deploy/runtime-wheels.json`；`deploy/download-runtime.py` 可在 5090 下载。GPU 主机无法访问官方 CDN 时，可在 Mac 运行 `python3 deploy/fetch-runtime-mac.py`，校验后分块上传，再执行 `python3 deploy/remote.py deploy/upgrade-runtime.ps1`。升级脚本要求生成队列为空，并且只改 F 盘虚拟环境。
 
 模型菜单现在同时检查主模型、文本编码器、VAE 与所需 LoRA；部分安装的模型不会被错误标成已安装。Agent 的模型列表也会按实际权重报告参考生视频、动作控制能力。Node 回归测试需要支持 `stripTypeScriptTypes` 的 Node 版本（本次使用 Node 25）。
+
+## 本地中文剧情配音
+
+新增独立的 Qwen3-TTS CustomVoice 配音脚本。运行时与 4.5GB 权重放在 `F:\ComfyArt\speech`，Mac 保留脚本、模型来源与校验摘要。语音虚拟环境复用 F 盘 CUDA 13 Torch，单独安装 Transformers 4.57.3 等依赖，不替换 ComfyUI 主环境。安装和大权重下载应在 GPU 队列空闲时执行。
+
+```sh
+scp deploy/install-speech-runtime.py deploy/story-speech.py deploy/download-speech-model.py deploy/download_models.py deploy/speech-model.json 5090:F:/ComfyArt/scripts/
+python3 deploy/remote.py deploy/setup-story-speech.ps1
+```
+
+在远端运行 `F:\ComfyArt\scripts\download-speech-model.py` 完成权重下载；它会校验官方 Hugging Face 修订与 ModelScope 镜像的 SHA256。模型固定为 `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice` 的 `0c0e3051f131929182e2c023b9537f8b1c68adfe`，代码与权重依照其 Apache-2.0 许可证。官方说明见 <https://github.com/QwenLM/Qwen3-TTS>。
+
+`deploy/story-speech.py` 接受 `--story` JSON 与 `--output` 目录；JSON 的 `narration` 是包含 `id`、`text`、`tone` 的列表。使用模型预置的 `Uncle_Fu` 中文男声、SDPA 和离线权重，逐段输出 WAV 与带时长的 `voice-manifest.json`。`deploy/run-story-speech.ps1` 是本次故事的调用示例。已实际生成九段、约 79 秒中文旁白。
+
+这是独立的短片配音流水线；原有 Kokoro 和 IndexTTS 画布工作流仍按各自依赖报告安装状态。电影素材与剪辑程序保存在 Mac 的 `artifacts/story-eleventh-light-v2/`，没有替换上一版预告片。

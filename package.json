@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "test:frontend": "node --experimental-vm-modules --test tests/frontend-models.test.mjs tests/frontend-workflows.test.mjs tests/frontend-composer.test.mjs tests/frontend-video-story.test.mjs"
+    "test:frontend": "node --experimental-vm-modules --test tests/frontend-models.test.mjs tests/frontend-workflows.test.mjs tests/frontend-composer.test.mjs tests/frontend-video-story.test.mjs tests/frontend-studio.test.mjs"
   },
   "dependencies": {
     "@tiptap/core": "^3.32.0",

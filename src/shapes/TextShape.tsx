@@ -73,6 +73,8 @@ function Text({ shape }: { shape: TextShape }) {
     if (!el) return
     const w = p.autoSize ? Math.ceil(el.scrollWidth) : p.w
     const h = Math.ceil(el.scrollHeight)
+    // Hidden / culled canvas nodes have no measurable height. Keep their saved geometry.
+    if (w <= 0 || h <= 0) return
     if (Math.abs(w - p.w) > 0.5 || Math.abs(h - p.h) > 0.5) {
       editor.run(() => editor.updateShape<TextShape>({ id: shape.id, type: TEXT, props: { w, h } }), { history: 'ignore' })
     }

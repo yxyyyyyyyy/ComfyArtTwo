@@ -1,18 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { Editor } from 'tldraw'
+import { atom, type Editor } from 'tldraw'
 import { api, viewUrl, type ImageRef } from '../comfy'
 import { fileSrc, mediaAsset, placeMedia, toMedia } from '../jobs'
 import { saveNow } from '../autosave'
 import { filmActivityAtom } from './filmState'
 
 export interface EpisodeSpec { id: string; title: string; scenes: { id: string; title: string; narration: { role: string; text: string }[] }[] }
-interface Production {
+export interface Production {
   status: string; phase: string; stage: string; heartbeat: number; error?: string; value?: number; maximum?: number
   images_done?: number; clips_done?: number; voices_done?: number; voices_total?: number
   render?: { done: number; total: number; stage: string }
   scenes: { id: string; title: string; panels: ImageRef[]; clip?: ImageRef }[]; result?: ImageRef; preview?: ImageRef; preview_render?: { done: number; total: number; stage: string }; seconds?: number
 }
+
+export const productionStatusAtom = atom<{ id: string; job: Production | null; disconnected: boolean } | null>('studio production status', null)
 
 export function EpisodeProduction({ editor, spec, visible, onClose }: { editor: Editor; spec: EpisodeSpec; visible: boolean; onClose: () => void }) {
   const [job, setJob] = useState<Production | null>(null)
@@ -34,6 +36,7 @@ export function EpisodeProduction({ editor, spec, visible, onClose }: { editor: 
         const data: Production = await r.json()
         if (!alive) return
         setJob(data); setDisconnected(false)
+        productionStatusAtom.set({ id: spec.id, job: data, disconnected: false })
         const activity = data.phase === 'videos' ? `动画 ${data.clips_done || 0}/6 · ${data.stage}${data.stage === '视频采样' ? ` ${data.value}/${data.maximum} 步` : ''}` : data.phase === 'voices' ? `角色配音 ${data.voices_done || 0}/${data.voices_total || 35}` : data.phase === 'images' ? `剧情画面 ${data.images_done || 0}/12` : data.phase === 'render' ? `剪辑字幕 ${data.render?.done || 0}/${data.render?.total || 18}` : data.stage
         filmActivityAtom.set({ busy: ['running', 'reconnecting', 'review'].includes(data.status), label: activity })
         if (data.status === 'done' && data.result) {
@@ -52,7 +55,11 @@ export function EpisodeProduction({ editor, spec, visible, onClose }: { editor: 
           if (plan?.result !== src) { editor.updateDocumentSettings({ meta: { ...doc.meta, videoStory: { ...plan, result: src } as any } }); await saveNow() }
           setError('')
         }
-      } catch (e) { if (alive) { if (saving) setError('成片已生成，但画布保存失败：' + (e instanceof Error ? e.message : String(e))); else setDisconnected(true) } }
+      } catch (e) { if (alive) { if (saving) setError('成片已生成，但画布保存失败：' + (e instanceof Error ? e.message : String(e))); else {
+        setDisconnected(true)
+        const previous = productionStatusAtom.get()
+        productionStatusAtom.set({ id: spec.id, job: previous?.id === spec.id ? previous.job : null, disconnected: true })
+      } } }
       finally { polling.current = false }
     }
     void poll(); const timer = setInterval(() => void poll(), 3000)
@@ -72,7 +79,7 @@ export function EpisodeProduction({ editor, spec, visible, onClose }: { editor: 
   const phases = ['images', 'voices', 'videos', 'render', 'done']
   const phase = phases.indexOf(job?.phase || 'images')
   const [done, total] = job?.phase === 'images' ? [job.images_done || 0, 12] : job?.phase === 'videos' ? [job.clips_done || 0, 6] : job?.phase === 'voices' ? [job.voices_done || 0, job.voices_total || 35] : job?.phase === 'render' ? [job.render?.done || 0, job.render?.total || 18] : job?.status === 'done' ? [1, 1] : [0, 1]
-  return createPortal(<div className="ca-modal" style={{ display: visible ? undefined : 'none' }} role="dialog" aria-modal="true" aria-label="第一集漫剧制作" onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+  return createPortal(<div className="ca-modal mj-film-modal" style={{ display: visible ? undefined : 'none' }} role="dialog" aria-modal="true" aria-label="第一集漫剧制作" onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
     <div className="ca-modal__card ca-film">
       <div className="ca-film__head"><div><strong>{spec.title}</strong><small>约 6 分钟 · 9:16 · 动态漫画 / 角色对白 / 中文字幕</small></div><button className="ca-panel__secondary" onClick={onClose}>收起工作台</button></div>
       <div className="ca-film__progress">
@@ -96,7 +103,7 @@ export function EpisodeProduction({ editor, spec, visible, onClose }: { editor: 
           </>}
         </div>
       </div>
-      <div className="ca-panel__foot ca-film__foot"><span>旧的 12 镜头计划已归档；本集单独制作。</span>{job && ['paused', 'error', 'review'].includes(job.status) ? <button className="ca-panel__primary" disabled={controlBusy} onClick={() => void control(false)}>继续整集制作</button> : job?.status !== 'done' ? <button className="ca-panel__secondary" disabled={controlBusy} onClick={() => void control(true)}>暂停本集任务</button> : <button className="ca-panel__primary" onClick={() => setFinal(true)}>播放完整第一集</button>}</div>
+      <div className="ca-panel__foot ca-film__foot"><span>素材与进度保存在当前项目。</span>{job && ['paused', 'error', 'review'].includes(job.status) ? <button className="ca-panel__primary" disabled={controlBusy} onClick={() => void control(false)}>继续整集制作</button> : job?.status !== 'done' ? <button className="ca-panel__secondary" disabled={controlBusy} onClick={() => void control(true)}>暂停本集任务</button> : <button className="ca-panel__primary" onClick={() => setFinal(true)}>播放完整第一集</button>}</div>
     </div>
   </div>, document.body)
 }

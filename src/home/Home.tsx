@@ -1,180 +1,33 @@
-import { useEffect, useRef, useState } from 'react'
-
-import type { AgentMode } from '../agent'
-import { botEnabledAtom, loadProviders } from '../bot'
-import { thumbUrl, uploadImage, viewUrl } from '../comfy'
-import { t } from '../i18n'
-import { errorText } from '../jobs'
-import { newProject, openView, type ProjectEntry } from '../projects'
-import { loadSkills, type Skill } from '../skills'
+import { useEffect, useState } from 'react'
+import { openView } from '../projects'
 import { Icons } from '../ui/icons'
-import { isEnter } from '../ui/keys'
-import { Popover } from '../ui/Popover'
-import { loadEntries, ProjectCard } from './Projects'
-
-const RECENT = 5
-const ROTATE_MS = 4000
-const EXAMPLES = [t('home.example1'), t('home.example2'), t('home.example3'), t('home.example4')]
-const QUICK: [keyof typeof Icons, string, string][] = [
-  ['grid', t('home.quickSocial'), t('home.quickSocialPrompt')],
-  ['assets', t('home.quickEcommerce'), t('home.quickEcommercePrompt')],
-  ['palette', t('home.quickBrand'), t('home.quickBrandPrompt')],
-  ['effects', t('home.quickCreative'), t('home.quickCreativePrompt')],
-  ['page', t('home.quickWebsite'), t('home.quickWebsitePrompt')],
-]
-const MODES: [AgentMode, string, keyof typeof Icons][] = [['agent', 'Agent', 'agent'], ['image', t('composer.image'), 'genImage'], ['video', t('common.video'), 'genVideo']]
+import { newStudioProject, openStudioProject } from '../studio/navigation'
+import { loadStudioProjects, projectSubtitle, type StudioProject } from '../studio/projectSummary'
+import { formatDuration } from '../studio/story'
 
 export function Home() {
-  const [text, setText] = useState('')
-  const [refs, setRefs] = useState<string[]>([])
-  const [mode, setMode] = useState<AgentMode>('agent')
-  const [agent, setAgent] = useState<boolean | null>(null)
-  const [modeMenu, setModeMenu] = useState(false)
-  const [example, setExample] = useState(0)
-  const [recent, setRecent] = useState<ProjectEntry[] | null>(null)
-  const [skills, setSkills] = useState<Skill[]>([])
-  const [uploading, setUploading] = useState(false)
+  const [projects, setProjects] = useState<StudioProject[] | null>(null)
   const [error, setError] = useState('')
-  const [drop, setDrop] = useState(false)
-  const input = useRef<HTMLTextAreaElement>(null)
-  const file = useRef<HTMLInputElement>(null)
-  const breakdown = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    input.current?.focus()
-    void loadProviders().then(() => {
-      const on = !!botEnabledAtom.get()
-      setAgent(on)
-      if (!on) setMode('image')
-    }, () => { setAgent(false); setMode('image') })
-    void loadEntries(RECENT).then(setRecent)
-    void loadSkills().then(setSkills)
-    const timer = window.setInterval(() => setExample((i) => (i + 1) % EXAMPLES.length), ROTATE_MS)
-    return () => clearInterval(timer)
-  }, [])
-
-  const send = () => {
-    if (!text.trim() || uploading) return
-    newProject({ ask: text.trim(), mode, ref: refs })
-  }
-  const upload = async (files: FileList | null) => {
-    setUploading(true)
-    try {
-      for (const f of Array.from(files ?? []).filter((x) => x.type.startsWith('image/'))) {
-        const src = viewUrl(await uploadImage(f, f.name))
-        setRefs((r) => (r.includes(src) ? r : [...r, src]))
-      }
-    } catch (e) {
-      setError(errorText(e))
-    } finally {
-      setUploading(false)
-    }
-  }
-  const breakDown = async (f: File | undefined) => {
-    if (!f) return
-    setUploading(true)
-    try {
-      newProject({ ref: viewUrl(await uploadImage(f, f.name)), tool: 'elements' })
-    } catch (e) {
-      setError(errorText(e))
-      setUploading(false)
-    }
-  }
-  const modes = MODES.filter(([m]) => agent || m !== 'agent')
-  const modeInfo = MODES.find(([m]) => m === mode)!
-
-  return (
-    <div className="ca-landing">
-      <h1 className="ca-landing__title">{t('home.whatToDesign')}</h1>
-      <div
-        className="ca-landing__box"
-        data-drop={drop || undefined}
-        onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDrop(true) } }}
-        onDragLeave={() => setDrop(false)}
-        onDrop={(e) => { e.preventDefault(); setDrop(false); void upload(e.dataTransfer.files) }}
-      >
-        {refs.length > 0 && (
-          <div className="ca-landing__refs">
-            {refs.map((src) => (
-              <span key={src} className="ca-landing__ref">
-                <img src={thumbUrl(src, 128)} alt="" />
-                <button type="button" title={t('common.remove')} onClick={() => setRefs(refs.filter((x) => x !== src))}>{Icons.close}</button>
-              </span>
-            ))}
-          </div>
-        )}
-        <textarea
-          ref={input}
-          className="ca-landing__input"
-          value={text}
-          placeholder={EXAMPLES[example]}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Tab' && !text) { e.preventDefault(); setText(EXAMPLES[example]) }
-            if (isEnter(e) && !e.shiftKey) { e.preventDefault(); send() }
-          }}
-        />
-        <div className="ca-landing__foot">
-          <button type="button" className="ca-rail__btn" title={t('home.addImage')} onClick={() => file.current?.click()}><span className="ca-icon">{Icons.plus}</span></button>
-          <Popover open={modeMenu} onOpenChange={setModeMenu} trigger={({ open, toggle }) => (
-            <button type="button" className="ca-landing__mode" data-open={open || undefined} onClick={toggle}>
-              <span className="ca-icon">{Icons[modeInfo[2]]}</span>{modeInfo[1]}<span className="ca-icon">{Icons.chevron}</span>
-            </button>
-          )}>
-            <div className="ca-menu">
-              {modes.map(([m, label, icon]) => (
-                <button key={m} type="button" className="ca-menu__item" onClick={() => { setMode(m); setModeMenu(false) }}>
-                  <span className="ca-icon">{Icons[icon]}</span><span className="ca-menu__grow">{label}</span>
-                  {m === mode && <span className="ca-icon">{Icons.check}</span>}
-                </button>
-              ))}
-            </div>
-          </Popover>
-          <div className="ca-landing__spacer" />
-          <button type="button" className="ca-landing__send" disabled={!text.trim() || uploading} title={t('composer.send')} onClick={send}><span className="ca-icon">{Icons.send}</span></button>
-        </div>
-        <input ref={file} type="file" accept="image/*" multiple hidden onChange={(e) => { void upload(e.target.files); e.target.value = '' }} />
-      </div>
-      {error && <div className="ca-landing__error" onClick={() => setError('')}>{error}</div>}
-      <div className="ca-landing__quick">
-        <span className="ca-landing__hint">{t('home.letAgentHelp')}</span>
-        {QUICK.map(([icon, label, prompt]) => (
-          <button key={label} type="button" className="ca-landing__chip" onClick={() => { setText(prompt); input.current?.focus() }}>
-            <span className="ca-icon">{Icons[icon]}</span>{label}
-          </button>
-        ))}
-        <button type="button" className="ca-landing__chip" disabled={uploading} title={t('home.breakdownHint')} onClick={() => breakdown.current?.click()}>
-          <span className="ca-icon">{Icons.layers}</span>{t('home.breakdown')}
-        </button>
-        <input ref={breakdown} type="file" accept="image/*" hidden onChange={(e) => { void breakDown(e.target.files?.[0]); e.target.value = '' }} />
-      </div>
-
-      <section className="ca-landing__section">
-        <div className="ca-landing__head">
-          <h2>{t('home.recentProjects')}</h2>
-          <button type="button" className="ca-landing__link" onClick={() => openView('projects')}>{t('home.viewAll')}</button>
-        </div>
-        {recent?.length === 0 && <div className="ca-projects__empty">{t('home.noProjectsYet')}</div>}
-        <div className="ca-projects__grid">
-          {recent?.map((e) => <ProjectCard key={e.id} entry={e} onChanged={() => void loadEntries(RECENT).then(setRecent)} />)}
-        </div>
-      </section>
-
-      <section className="ca-landing__section">
-        <div className="ca-landing__head"><h2>{t('home.startFromSkill')}</h2></div>
-        <div className="ca-skillgrid">
-          {skills.map((s) => {
-            const cover = Object.values(s.images ?? {})[0]
-            return (
-              <button key={s.id} type="button" className="ca-skillcard" onClick={() => newProject({ skill: s.id })}>
-                <span className="ca-skillcard__icon">{cover ? <img src={thumbUrl(cover, 128)} alt="" /> : <span className="ca-icon">{Icons.skill}</span>}</span>
-                <span className="ca-skillcard__name">{s.name}</span>
-                <span className="ca-model__tag">{s.custom ? t('home.mySkill') : t('home.builtIn')}</span>
-              </button>
-            )
-          })}
-        </div>
-      </section>
-    </div>
-  )
+  const [search, setSearch] = useState('')
+  const reload = () => { setError(''); void loadStudioProjects().then(setProjects, () => setError('项目列表暂时无法读取，请检查连接后重试。')) }
+  useEffect(reload, [])
+  const latest = projects?.[0]
+  const completed = projects?.find((p) => p.plan?.result)
+  const feature = completed ?? latest
+  const filtered = projects?.filter((p) => p.entry.name.toLowerCase().includes(search.toLowerCase()))
+  return <div className="mj-home-content">
+    <header className="mj-home-top"><div><span className="mj-eyebrow">YOUR LOCAL CREATIVE SPACE</span><h1>创作首页</h1></div><label className="mj-search"><span className="ca-icon">{Icons.search}</span><input aria-label="搜索项目" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索你的故事…" /></label></header>
+    <section className="mj-hero">
+      {feature?.poster && <img className="mj-hero__image" src={feature.poster} alt="当前漫剧场景" />}
+      <div className="mj-hero__shade" /><div className="mj-hero__copy"><span className="mj-eyebrow">FROM SCRIPT TO SCREEN</span><h2>让故事，<br />有声有色<span>。</span></h2><p>从一段剧本，到一部属于你的漫剧。<br />画面、对白、声音，在这里汇成故事。</p><button type="button" className="mj-button mj-button--primary" onClick={() => newStudioProject()}><span className="ca-icon">{Icons.plus}</span>开始新的故事<span>↗</span></button></div>
+      <div className="mj-hero__caption"><span>MUJIAN / LOCAL AI FILM STUDIO</span>{feature && <button type="button" onClick={() => openStudioProject(feature.entry.id, feature.plan?.result ? 'film' : 'overview')}>正在创作 · {feature.entry.name}<span>↗</span></button>}</div>
+    </section>
+    <section className="mj-actions" aria-label="快速开始"><button type="button" onClick={() => newStudioProject()}><span className="mj-action-icon">{Icons.skill}</span><span><strong>新建漫剧</strong><small>写下故事，开始创作</small></span><span className="mj-action-arrow">↗</span></button><button type="button" disabled={!latest} onClick={() => latest && openStudioProject(latest.entry.id, 'production')}><span className="mj-action-icon">{Icons.genVideo}</span><span><strong>继续制作</strong><small>{latest ? '回到最近的创作进度' : '创建项目后即可继续'}</small></span><span className="mj-action-arrow">↗</span></button><button type="button" disabled={!completed} onClick={() => completed && openStudioProject(completed.entry.id, 'film')}><span className="mj-action-icon">{Icons.video}</span><span><strong>查看成片</strong><small>{completed ? '播放和下载已完成作品' : '你的作品将在这里呈现'}</small></span><span className="mj-action-arrow">↗</span></button></section>
+    <section className="mj-recent"><div className="mj-section-title"><div><span className="mj-eyebrow">KEEP YOUR STORY GOING</span><h2>最近的故事 <small>{projects?.length ?? '—'}</small></h2></div><button type="button" className="mj-text-button" onClick={() => openView('projects')}>全部项目 <span>→</span></button></div>
+      {error && <div className="mj-error" role="alert">{error}<button type="button" onClick={reload}>重新连接</button></div>}
+      {!projects && !error && <div className="mj-empty">正在读取你的创作项目…</div>}
+      {projects && !filtered?.length && <div className="mj-empty">{search ? '没有找到这个故事，试试其他名称。' : '第一个故事，从这里开始。'}{!search && <button type="button" className="mj-button" onClick={() => newStudioProject()}>新建漫剧</button>}</div>}
+      <div className="mj-project-grid">{filtered?.map((p, i) => <article className="mj-project-card" key={p.entry.id}><button type="button" className="mj-project-cover" aria-label={`打开 ${p.entry.name}`} onClick={() => openStudioProject(p.entry.id)}>{p.poster ? <img src={p.poster} alt="" loading="lazy" /> : <span className="mj-cover-placeholder">{Icons.genVideo}</span>}<span className="mj-project-index">PROJECT / {String(i + 1).padStart(2, '0')}</span><span className="mj-project-status" data-done={!!p.plan?.result}>{projectSubtitle(p)}</span>{p.seconds && <span className="mj-project-duration">{formatDuration(p.seconds)}</span>}</button><div className="mj-project-info"><div><h3>{p.entry.name || '未命名故事'}</h3><p>{p.plan?.production ? '竖屏漫剧 · 画面 / 配音 / 字幕' : '自由创作 · 画布与本地生成'}</p></div><button type="button" aria-label={`继续 ${p.entry.name}`} onClick={() => openStudioProject(p.entry.id)}>↗</button></div></article>)}</div>
+    </section><footer className="mj-home-footer"><span>每个故事，都值得被看见。</span><span>MUJIAN STUDIO / 本地 AI 创作</span></footer>
+  </div>
 }

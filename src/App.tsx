@@ -83,6 +83,8 @@ import { VideoToolbar } from './ui/VideoToolbar'
 import { Zoom } from './ui/Zoom'
 import { lang, t } from './i18n'
 import { uuid } from './id'
+import { StudioWorkspace } from './studio/StudioWorkspace'
+import { studioView, type StudioView } from './studio/story'
 
 const CHANNEL = 'comfyart-projects'
 const TAB = uuid()
@@ -126,6 +128,18 @@ const assets: TLAssetStore = {
 
 export function App({ id }: { id: string }) {
   const [editor, setEditor] = useState<Editor | null>(null)
+  const [ready, setReady] = useState(false)
+  const [studio, setStudio] = useState<StudioView>(() => {
+    const params = new URL(location.href).searchParams
+    return params.has('studio') ? studioView(params.get('studio')) : ['ask', 'mode', 'ref', 'skill', 'tool'].some((key) => params.has(key)) ? 'canvas' : 'overview'
+  })
+  const changeStudio = (view: StudioView) => {
+    setStudio(view)
+    if (view === 'canvas') chatViewAtom.set('closed')
+    const url = new URL(location.href)
+    url.searchParams.set('studio', view)
+    history.replaceState(null, '', url)
+  }
   const [error, setError] = useState('')
   const chat = useValue(chatViewAtom)
   const setChat = (view: ChatView) => chatViewAtom.set(view)
@@ -133,6 +147,10 @@ export function App({ id }: { id: string }) {
   const staleRef = useRef(false)
   const dock = useValue(dockAtom)
   const dark = useValue('dark mode', () => editor?.user.getIsDarkMode() ?? false, [editor])
+
+  useEffect(() => {
+    if (new URL(location.href).searchParams.get('studio') === 'canvas') chatViewAtom.set('closed')
+  }, [])
 
   useEffect(() => {
     if (editor) markDark(dark)
@@ -191,6 +209,7 @@ export function App({ id }: { id: string }) {
           history.replaceState(null, '', url)
         }
         takeHandoff(editor, setError).catch((e) => setError(errorText(e)))
+        setReady(true)
       })
       .catch((e) => setError(String(e)))
     const channel = new BroadcastChannel(CHANNEL)
@@ -212,7 +231,9 @@ export function App({ id }: { id: string }) {
   }, [editor, id])
 
   return (
-    <div className="ca-root" data-chat={chat} data-dock={dock}>
+    <>
+    {editor && ready ? <StudioWorkspace editor={editor} view={studio} onView={changeStudio} /> : <div className="mj-loading">幕间 · 正在打开你的故事…</div>}
+    <div className="ca-root mj-canvas-shell" data-chat={chat} data-dock={dock} data-studio-hidden={studio !== 'canvas' || !ready || undefined} aria-hidden={studio !== 'canvas' || !ready} inert={studio !== 'canvas' || !ready}>
       {editor && chat !== 'closed' && (
         <AgentPanel
           editor={editor}
@@ -281,7 +302,6 @@ export function App({ id }: { id: string }) {
           {editor && <SidePanel editor={editor} onError={setError} />}
         </div>
       </div>
-      {editor && <StoryVideoHost editor={editor} />}
       <Shortcuts />
       <KitEditor onError={setError} />
       <Confirm />
@@ -299,13 +319,15 @@ export function App({ id }: { id: string }) {
       {editor && <HistoryDialog editor={editor} projectId={id} onError={setError} />}
       {editor && <ExportDialog editor={editor} onError={setError} />}
       {editor && <AudioDialog editor={editor} onError={setError} />}
-      {error && <div className="ca-error" onClick={() => setError('')}>{error}</div>}
+    </div>
+      {editor && ready && <StoryVideoHost editor={editor} />}
+      {error && <div className="ca-error" role="alert" onClick={() => setError('')}>{error}</div>}
       {stale && (
         <div className="ca-stale">
           <span>{t('app.yourFileVersionIsOut')}</span>
           <button type="button" className="ca-panel__primary" onClick={() => location.reload()}>{t('app.refresh')}</button>
         </div>
       )}
-    </div>
+    </>
   )
 }

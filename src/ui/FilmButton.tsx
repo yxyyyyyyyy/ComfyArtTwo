@@ -11,6 +11,6 @@ export function FilmButton({ editor, className = '' }: { editor: Editor; classNa
     return `镜头 ${plan.shots.filter((s) => s.src).length}/${plan.shots.length}${plan.shots.some((s) => s.promptId && !s.src) ? ' · 有任务可接回' : ''}`
   }, [editor])
   return <button type="button" className={`ca-bar__btn ca-film-entry ${className}`} title={activity.label || '剧本 → 分镜 → 动态视频 → 中文配音 → 导出'} onClick={() => filmOpenAtom.set({ source: '' })}>
-    <span className="ca-icon">{Icons.video}</span><strong>视频工作台</strong><span>{activity.busy ? activity.label : count}</span>
+    <span className="ca-icon">{Icons.video}</span><strong>制作工作台</strong><span>{activity.busy ? activity.label : count}</span>
   </button>
 }

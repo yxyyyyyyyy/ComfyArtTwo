@@ -13,7 +13,7 @@ import { EpisodeProduction, type EpisodeSpec } from './EpisodeProduction'
 import { Icons } from './icons'
 
 interface Shot extends StoryShot { promptId?: string; submittedAt?: number }
-interface Plan { source: string; shots: Shot[]; ratio: string; resolution: string; voice: boolean; assemblyId?: string; result?: string; firstFrame?: string }
+interface Plan { source: string; direction?: string; shots: Shot[]; ratio: string; resolution: string; voice: boolean; assemblyId?: string; result?: string; firstFrame?: string }
 interface Render { status: string; stage?: string; value?: number; max?: number; position?: number; error?: string; outputs?: { filename: string; subfolder: string; type: string }[] }
 const pause = () => new Promise((r) => setTimeout(r, 2000))
 const friendly = (e: unknown) => e instanceof TypeError || (e instanceof Error && /fetch|network|abort|timeout/i.test(e.message)) ? '连接已中断，任务可能仍在 5090 上执行。保留任务编号，恢复连接后继续查询。' : e instanceof Error ? e.message : String(e)
@@ -33,12 +33,13 @@ export function StoryVideoHost({ editor }: { editor: Editor }) {
   }, [intent])
   const production = useValue('episode production', () => (editor.getDocumentSettings().meta.videoStory as { production?: EpisodeSpec } | undefined)?.production, [editor])
   if (production && (!request || !request.source)) return <EpisodeProduction editor={editor} spec={production} visible={!!intent && !intent.source} onClose={() => filmOpenAtom.set(null)} />
-  return request && <StoryVideoDialog key={request.source} editor={editor} source={request.source} firstFrame={request.firstFrame} visible={!!intent} onClose={() => filmOpenAtom.set(null)} />
+  return request && <StoryVideoDialog key={request.source + (request.direction ?? '')} editor={editor} source={request.source} direction={request.direction} firstFrame={request.firstFrame} visible={!!intent} onClose={() => filmOpenAtom.set(null)} />
 }
 
-export function StoryVideoDialog({ editor, source, firstFrame, visible, onClose }: { editor: Editor; source: string; firstFrame?: string; visible: boolean; onClose: () => void }) {
+export function StoryVideoDialog({ editor, source, direction, firstFrame, visible, onClose }: { editor: Editor; source: string; direction?: string; firstFrame?: string; visible: boolean; onClose: () => void }) {
   const saved = editor.getDocumentSettings().meta.videoStory as unknown as Plan | undefined
-  const initial: Plan = source && source !== saved?.source ? { source, shots: scriptShots(source), ratio: '9:16', resolution: '384p', voice: true, firstFrame } : saved ?? { source, shots: [], ratio: '9:16', resolution: '384p', voice: true, firstFrame }
+  const shotsFromSource = () => scriptShots(source).map((shot) => ({ ...shot, prompt: direction?.trim() ? `${shot.prompt}\n画面风格与创作要求：${direction.trim()}` : shot.prompt }))
+  const initial: Plan = source && (source !== saved?.source || direction !== saved?.direction && !saved?.shots.some((s) => s.src || s.promptId)) ? { source, direction, shots: shotsFromSource(), ratio: '9:16', resolution: '384p', voice: true, firstFrame } : saved ?? { source, shots: [], ratio: '9:16', resolution: '384p', voice: true, firstFrame }
   const [plan, setPlan] = useState<Plan>(initial)
   const live = useRef(plan)
   const [busy, setBusy] = useState(false)
@@ -54,8 +55,12 @@ export function StoryVideoDialog({ editor, source, firstFrame, visible, onClose 
   const stop = useRef(false)
   const save = (patch: Partial<Plan>) => {
     const next: Plan = JSON.parse(JSON.stringify({ ...live.current, ...patch })); live.current = next; setPlan(next)
-    editor.updateDocumentSettings({ meta: { ...editor.getDocumentSettings().meta, videoStory: next as any } })
+    const meta = editor.getDocumentSettings().meta
+    editor.updateDocumentSettings({ meta: { ...meta, ...(patch.source !== undefined ? { studioDraft: { ...(meta.studioDraft as Record<string, any> ?? {}), source: patch.source } } : {}), videoStory: next as any } })
   }
+  useEffect(() => {
+    if (source && (!saved || source !== saved.source || direction !== saved.direction)) save({})
+  }, [])
   const edit = (index: number, patch: Partial<Shot>) => save({ shots: live.current.shots.map((s, i) => i === index ? { ...s, ...patch } : s), assemblyId: undefined, result: undefined })
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer) }, [])
   useEffect(() => {
@@ -189,9 +194,9 @@ export function StoryVideoDialog({ editor, source, firstFrame, visible, onClose 
   const s = plan.shots[selected]
   const elapsed = active >= 0 && plan.shots[active]?.submittedAt ? Math.max(0, Math.floor((now - plan.shots[active].submittedAt!) / 1000)) : 0
   const percent = plan.shots.length ? Math.round(completed / plan.shots.length * 100) : 0
-  return createPortal(<div className="ca-modal" style={{ display: visible ? undefined : 'none' }} role="dialog" aria-modal="true" aria-label="视频工作台" onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+  return createPortal(<div className="ca-modal mj-film-modal" style={{ display: visible ? undefined : 'none' }} role="dialog" aria-modal="true" aria-label="视频工作台" onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
     <div className="ca-modal__card ca-film">
-      <div className="ca-film__head"><div><strong>视频工作台</strong><small>剧本到成片 · 进度保存在当前项目</small></div><button className="ca-panel__secondary" onClick={onClose}>{busy ? '收起 · 继续制作' : '返回画布'} {Icons.close}</button></div>
+      <div className="ca-film__head"><div><strong>分镜与制作设置</strong><small>幕间 · 确认画面、旁白和时长后开始制作</small></div><button className="ca-panel__secondary" onClick={onClose}>{busy ? '收起 · 继续制作' : '返回工作台'} {Icons.close}</button></div>
       <div className="ca-film__progress">
         <div className="ca-film__steps">{['① 剧本分镜', '② 生成镜头', '③ 中文配音', '④ 合成导出'].map((label, i) => <span key={label} data-active={(plan.result ? 4 : phase) >= i || undefined}>{label}</span>)}</div>
         <div className="ca-film__meter"><strong>已完成 {completed} / {plan.shots.length} 镜头</strong><span>{percent}% · {plan.resolution} · {plan.ratio} · 原生镜头 {plan.shots.reduce((n, s) => n + s.duration, 0)} 秒</span></div>

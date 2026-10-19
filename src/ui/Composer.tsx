@@ -26,6 +26,8 @@ import { t } from '../i18n'
 import { uuid } from '../id'
 import { isEnter } from './keys'
 import { composerSendMode } from '../composerRouting'
+import { isVideoScript } from '../videoStory'
+import { StoryVideoDialog } from './StoryVideoDialog'
 
 const MODES: [AgentMode, string, keyof typeof Icons][] = [['agent', 'Agent', 'agent'], ['image', t('composer.image'), 'genImage'], ['video', t('common.video'), 'genVideo']]
 const REVIEW_PROMPT = t('composer.canvasReviewUseGetCanvas')
@@ -106,6 +108,7 @@ export function Composer({ editor, busy, onError }: { editor: Editor; busy: bool
   const file = useRef<HTMLInputElement>(null)
   const [hidden, setHidden] = useState<TLShapeId[]>([])
   const [drop, setDrop] = useState(false)
+  const [story, setStory] = useState<string | null>(null)
   const each = useEach()
 
   const shown = selected.filter((s) => !hidden.includes(s.id))
@@ -138,6 +141,7 @@ export function Composer({ editor, busy, onError }: { editor: Editor; busy: bool
     const text = draft.trim()
     const sendMode = composerSendMode(mode, text, !!skill, docs.length > 0)
     if (!text) return
+    if (sendMode === 'video' && isVideoScript(text)) { setStory(text); return }
     if (sendMode === 'agent' && enabled === false) {
       agentModeAtom.set('agent')
       onError(t('agentPanel.enableMcpAndAgentIn'))
@@ -172,6 +176,8 @@ export function Composer({ editor, busy, onError }: { editor: Editor; busy: bool
       onDragLeave={() => setDrop(false)}
       onDrop={(e) => { setDrop(false); const files = imageFiles(e.dataTransfer); if (files.length) { e.preventDefault(); void uploadRefs(editor, files).catch(fail) } }}
     >
+      {story !== null && <StoryVideoDialog editor={editor} source={story} firstFrame={refs[0]?.type === 'image' ? srcOf(editor, refs[0]) ?? undefined : undefined} onClose={() => setStory(null)} />}
+      {mode === 'video' && <button type="button" className="ca-panel__secondary" onClick={() => setStory(editor.getDocumentSettings().meta.videoStory ? '' : draft.trim())}>分镜制作 / 继续上次进度</button>}
       {(slash && filtered.length > 0) && (
         <div className="ca-menu ca-composer__suggest">
           {filtered.slice(0, 8).map((s) => (

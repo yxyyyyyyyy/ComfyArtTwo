@@ -113,6 +113,10 @@ function withModelPaths(prompt: PromptGraph): PromptGraph {
 }
 
 export async function queuePrompt(prompt: PromptGraph): Promise<string> {
+  if (Object.values(prompt).some((node) => node.class_type.startsWith('MiniMaxH3'))) {
+    const prep = await api('/comfyart/video/prepare', { method: 'POST' })
+    if (!prep.ok) throw new Error((await prep.json()).error ?? `video preparation failed: ${prep.status}`)
+  }
   const res = await api('/prompt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -126,14 +130,22 @@ export async function queuePrompt(prompt: PromptGraph): Promise<string> {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 async function waitForOutput<T>(promptId: string, node: string, pick: (out: Record<string, any>) => T | null): Promise<T> {
+  const started = Date.now()
   for (;;) {
     const hist = (await (await api(`/history/${promptId}`)).json())[promptId]
     if (hist) {
-      const err = (hist.status?.messages ?? []).find((m: any) => m[0] === 'execution_error')
-      if (err) throw new Error(String(err[1]?.exception_message ?? 'execution failed'))
+      const err = (hist.status?.messages ?? []).find((m: any) => m[0] === 'execution_error' || m[0] === 'execution_interrupted')
+      if (err) {
+        const message = String(err[1]?.exception_message ?? (err[0] === 'execution_interrupted' ? '生成任务已终止，可以重试此镜头。' : 'execution failed')).trim()
+        const node = String(err[1]?.node_type ?? err[1]?.node_id ?? '')
+        throw new Error(`${node ? `${node}: ` : ''}${message}${message.includes('Fault failed: 2') ? '\n模型权重调入显存失败，本镜头未完成。请重试本镜头；已完成镜头会保留。' : ''}`)
+      }
       const value = hist.outputs?.[node] ? pick(hist.outputs[node]) : null
       if (value) return value
       if (hist.status?.completed) throw new Error('the workflow produced no output')
+    } else if (Date.now() - started > 30000) {
+      const queue = await (await api('/queue')).json()
+      if (![...(queue.queue_running ?? []), ...(queue.queue_pending ?? [])].some((job: unknown[]) => job[1] === promptId)) throw new Error('任务记录已丢失（服务可能已重启）。请重试此镜头；已完成的镜头仍保留。')
     }
     await sleep(POLL_MS)
   }

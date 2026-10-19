@@ -93,6 +93,7 @@ function Task({ editor, b }: { editor: Editor; b: BotBlock }) {
         <span className="ca-chat__status">{b.error ? t('chatMessage.generationFailed') : b.srcs ? '' : t('chatMessage.generating')}</span>
       </div>
       {b.srcs && <div className="ca-chat__thumbs">{b.srcs.map((s) => <Thumb key={s} editor={editor} src={s} />)}</div>}
+      {b.error && <div className="ca-chat__io" role="alert" style={{ color: '#ba3030', whiteSpace: 'pre-wrap' }}>{b.error}</div>}
     </div>
   )
 }

@@ -10,6 +10,7 @@ import { applyRefs, PALETTE_MODE, refControlsOf, refHints, refLimit, refModesOf,
 import { paletteImage, palettePrompt } from './palette'
 import { annotated, imageToVideoGraph, lipSyncGraph, MAX_VIDEO_REF_KINDS, motionGraph, r2vGraph, storyboardGraph, t2vGraph, VIDEO_AREAS, videoSize, type Built, type Scene } from './workflows'
 import { t } from './i18n'
+import { isVideoScript } from './videoStory'
 
 export const RESOLUTIONS = ['1K', '2K', 'custom']
 export const QUALITIES: [string, string][] = [['fast', t('generate.turbo')], ['standard', t('generate.standard')], ['high', t('generate.highQuality')]]
@@ -167,6 +168,7 @@ async function generateGraph(shape: GeneratorShape): Promise<Built> {
   ].filter(Boolean).join(' ')
   if (isVideo(workflow)) {
     const scenes = scenesOf(shape).filter((sc) => sc.prompt.trim())
+    if (!scenes.length && isVideoScript(shape.props.prompt)) throw new Error('这是一份长剧本，请使用对话输入区的“分镜制作”入口，拆分镜头后逐镜生成。原稿不会作为一个短视频任务提交。')
     if (scenes.length) {
       return storyboardGraph(scenes.map((sc) => ({ ...sc, prompt: [sc.prompt, suffix].filter(Boolean).join(', ') })), ratioOf(ratio), refs[0] ? annotated(refs[0]) : null)
     }

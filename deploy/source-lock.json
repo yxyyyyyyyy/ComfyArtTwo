@@ -32,7 +32,14 @@
     "torchvision": "0.26.0+cu130",
     "torchaudio": "2.11.0+cu130",
     "minimax_turbo_steps": 8,
-    "disable_fast_disk": true
+    "disable_fast_disk": true,
+    "video_model_cache": {
+      "path": "D:\\ComfyArtCache\\video",
+      "original_models_retained": "F:\\ComfyArt\\ComfyUI\\models",
+      "verified_files": 5,
+      "bytes": 44426778471,
+      "validation": "SHA-256 checked while copying and verified again on SSD"
+    }
   },
   "custom_nodes": {
     "comfyui-inpaint-nodes": {

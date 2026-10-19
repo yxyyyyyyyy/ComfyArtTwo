@@ -86,6 +86,16 @@ for i, scene in enumerate(SPEC['scenes']):
     end_cue = next((c for c in timeline if c['scene']==scene['id'] and c['id']==edit.get('end_cue')), None)
     cut = round(end_cue['start']*FPS)/FPS if end_cue else start+native+round((length-native)*.58*FPS)/FPS
     cut = min(end-1, max(start+native+1, cut))
+    action = next((c for c in timeline if c['scene']==scene['id'] and c['id']==edit.get('native_cue')), None)
+    if action:
+        at = round(action['start']*FPS)/FPS
+        assert start < at and at+native < end
+        segments += [
+            {'scene':scene['id'],'start':start,'duration':at-start,'kind':'comic','panel':'a'},
+            {'scene':scene['id'],'start':at,'duration':native,'kind':'comic' if a.illustrated_only else 'native','panel':'a'},
+            {'scene':scene['id'],'start':at+native,'duration':end-at-native,'kind':'comic','panel':'b'},
+        ]
+        continue
     segments += [
         {'scene':scene['id'],'start':start,'duration':native,'kind':'comic' if a.illustrated_only else 'native','panel':'a'},
         {'scene':scene['id'],'start':start+native,'duration':cut-start-native,'kind':'comic','panel':edit.get('middle_panel','b')},

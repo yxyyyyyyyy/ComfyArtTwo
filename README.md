@@ -1,89 +1,70 @@
-# ComfyArt
+# 幕间 · MUJIAN STUDIO
 
-English | [中文](README.zh.md)
+本地 AI 漫剧创作工作台。从故事剧本、角色声音，到制作进度与成片放映，把创作过程放在一个清晰的界面里。
 
-[![ComfyArt promo](docs/media/preview-en.gif)](docs/media/promo-en.mp4)
+本项目基于 [jtydhr88/ComfyArt](https://github.com/jtydhr88/ComfyArt) 二次开发，使用 ComfyUI、React 和 tldraw，保留原项目的版权与许可证。仓库名为 **ComfyArtTwo**，应用界面品牌为 **幕间**；原有 `/comfyart/` 地址和数据格式继续保留，兼容已有项目。
 
-[Watch the full promo (38s)](docs/media/promo-en.mp4)
+<img src="docs/media/mujian-home.png" alt="幕间创作首页：新建漫剧、继续制作、查看成片" width="480" />
 
-A free, open-source AI design canvas that runs fully on your own ComfyUI: an infinite canvas (tldraw + React), a design agent that works on it with tools, and every image, video, audio and 3D model running locally. No account, no credits, no cloud.
+## 本项目的改进
 
-Documentation with screenshots for every feature: **[comfyart.org](https://comfyart.org)**.
+- **独立的漫剧界面**：新增创作首页，以及项目总览、故事剧本、角色与声音、制作工作台、成片放映室和高级画布导航。
+- **剧本与修订稿**：自动保存原稿和风格要求；已有生成记录时，以修订稿新建项目，保留旧版成片和素材。
+- **可见的制作进度**：展示实际阶段、场景素材、配音和任务状态，支持继续制作、失败重试与已完成素材复用。
+- **本地配音与合成**：接入 Qwen3-TTS 中文角色配音，将动画片段、动态漫画、字幕与音效合成为视频。
+- **部署与稳定性**：提供 Mac 源码维护、Windows RTX 5090 部署脚本，并处理模型资源交接、断线恢复和 Windows 文件占用等问题。
 
-![The Agent building an Instagram post on the canvas](docs-site/images/agent-result.webp)
+角色页展示已有制作记录中的音色、对白和旁白，可保存创作备注供修订参考。人物一致性和动作连贯性仍需人工检查。
 
-## Features
+## 已验证的成片流程
 
-- **Home and projects**: start a design from one sentence or a skill, browse and manage projects, switch language (中文 / English), theme and chat side at any time.
-- **Canvas**: pages, artboards with size presets, fill, stroke and corner radius, auto layout, a layers panel with drag, rename and range select, comments that can be run as edits or sent to the Agent with the marked area, snapshot history, export to PNG, JPG, PDF and editable PPTX.
-- **Text and vectors**: rich text (mixed fonts, sizes, colors, bold, italic, underline in one text box), a font picker with brand, common and local fonts, solid, linear, radial and image fills with transparent color stops and blend modes, a pen tool with node editing, and boolean union, subtract, intersect and exclude.
-- **Generate**: image generators sized in real pixels with five local image models, references and structure modes, color palettes and base images; video from text, first and last frames, up to 9 reference images, or a storyboard, 5 to 15 seconds at 768p or 1080p.
-- **Image tools**: quick edit, upscale, remove background, eraser, crop with platform presets, flip and rotate, non-destructive adjust, inpaint, move object, multi-angle, expand, split layers, edit text, style transfer, vectorize.
-- **Edit Elements**: turn a flat poster back into an editable artboard (OCR text layers, cut-out product and logo, clean background), edit it, then re-render.
-- **Mockups**: print a design onto a product photo; it follows folds and shading in real time, then bake it or blend it with AI.
-- **Audio and 3D**: music, voiceovers (with voice cloning) and sound effects as playable cards; image to textured 3D model.
-- **Assets**: My Assets, a full-page brand kit editor, characters, products and a reference board.
-- **Agent**: a tool-using design agent (below) that can use every feature above through MCP.
+已制作一集 **360 秒、720 × 1280、9:16** 的竖屏漫剧，包含中文角色配音、字幕和悬疑音效，采用 **53 秒原生人物动画片段与 307 秒动态漫画** 的混合形式。
 
-## Install
+剧本整理、画面验收和剪辑质量检查仍需人工参与。项目不承诺任意剧本直接生成六分钟连续原生动画。不同模型和硬件环境下，生成速度及效果会有差异。
 
-Put this folder in `ComfyUI/custom_nodes/`, install the Python requirements into ComfyUI's environment (`pip install -r requirements.txt`: `pypdfium2` for PDF uploads and `rapidocr` for Edit Elements), restart ComfyUI and open `http://127.0.0.1:8188/comfyart/`. The built page is in `dist/`; after changing `src/`, rebuild with `npm install && npm run build`.
+测试记录：20 项前端测试通过；生产构建通过；已在浏览器验证草稿保存、分镜拆分、修订稿带入新项目和成片播放。
 
-Projects, their snapshot history and agent chats are saved in a SQLite database, `user/__comfyart/data.db`. Projects from older versions (JSON files under `comfyart/projects/`) are imported automatically the first time you open ComfyArt; the files are left in place. The interface starts in ComfyUI's language and can be switched from the settings menu.
+## 安装与运行
 
-## Agent
+先准备可以运行的 ComfyUI 环境，在 `ComfyUI/custom_nodes` 下克隆：
 
-The Agent panel runs a real tool-using agent on the backend, ported from [ComfyTV](https://github.com/jtydhr88/ComfyTV)'s bot. It is off by default: turn on MCP and the Agent in Agent Settings. Image and video modes work without it. Pick the agent per chat:
+```sh
+git clone https://github.com/yxyyyyyyyy/ComfyArtTwo.git ComfyArt
+cd ComfyArt
+```
 
-| Agent | What it needs |
-|---|---|
-| Claude Code | `claude` on PATH, logged in |
-| Codex | `codex` on PATH, logged in |
-| Qwen Code | `qwen` on PATH with a model configured in `~/.qwen/settings.json` |
-| DeepSeek Harness | `dsh` on PATH, signed in through the DeepSeek Harness app |
-| Local LLM | any OpenAI-compatible endpoint with tool calling (Agent Settings → Local LLM URL); set `COMFYART_LOCAL_LLM_API_KEY` before starting ComfyUI if it needs a key |
+使用 **ComfyUI 所在的 Python 环境** 安装依赖：
 
-Storyboard split, OCR, brand and memory extraction, reference notes and the Ideogram caption are single calls to the default Agent (`POST /comfyart/bot/complete`, no tools). ComfyArt never stores credentials. The agent works through the ComfyArt MCP server at `POST /comfyart/mcp` (look at the canvas, generate and edit images, videos, audio and 3D models, Edit Elements and mockups, place text, shapes, frames, web pages and slides, memory, skills, ask the user). Canvas tools are executed by the open ComfyArt tab of the project, so keep it open while the agent works. Chats are saved in a SQLite database at `user/__comfyart/data.db` and keep running when the panel is closed.
+```sh
+python -m pip install -r requirements.txt
+```
 
-## Workflows and models
+重启 ComfyUI，打开 <http://127.0.0.1:8188/comfyart/>。仓库包含构建后的前端；修改源码后重新构建：
 
-Every canvas action runs one of the API workflows in `workflows/` through ComfyUI's `/prompt`. They use core nodes unless noted.
+```sh
+npm ci
+npm run build
+npm run test:frontend
+```
 
-| Action | Workflow | Models / custom nodes |
-|---|---|---|
-| Image generation, quick edit, edit text, expand, comment edits | `qwen-image-2.1-t2i`, `edit-qwen-image-2.1`, `outpaint-qwen-image-2.1` | `qwen_image_2.1_int8_convrot.safetensors`, `qwen3vl_8b_int8_convrot.safetensors`, `qwen_image_2.1_vae_bf16.safetensors` |
-| Image generation (other models) | `z-image-turbo-t2i`, `flux2-klein-9b-t2i`, `qwen-image-2512-t2i`, `ideogram4-t2i` | `z_image_turbo_bf16` + `qwen_3_4b` + `ae`; `flux-2-klein-9b-nvfp4` + `qwen_3_8b_fp8mixed` + `flux2-vae`; `qwen_image_2512_fp8_e4m3fn` + `qwen_2.5_vl_7b_fp8_scaled` + `qwen_image_vae` (loaded with the ComfyArt Precise UNET Loader node, see below); `ideogram4_fp8_scaled` + `ideogram4_unconditional_fp8_scaled` + `qwen3vl_8b_fp8_scaled` + `flux2-vae`; the default Agent writes the structured caption Ideogram expects (`ideogram4-caption.json`) |
-| Reference modes (line art, depth, pose, …) | built in code | [comfyui_controlnet_aux](https://github.com/Fannovel16/comfyui_controlnet_aux) preprocessors (MLSD, HED, normal and segmentation download their annotator weights on first use); with Qwen Image 2512 also `Qwen-Image-2512-Fun-Controlnet-Union-2602.safetensors` (controlnet) |
-| Voice input | `transcribe-gemma4` | `gemma4_e4b_it_fp8_scaled.safetensors` (text_encoders) |
-| Upscale | `upscale-ultrasharp-4x` | `4x-UltraSharp.pth` (upscale_models) |
-| Remove background | `cutout-birefnet` | `birefnet.safetensors` (background_removal) |
-| Eraser | `erase-lama` | [comfyui-inpaint-nodes](https://github.com/Acly/comfyui-inpaint-nodes), `big-lama.pt` |
-| Angles | `multiangle-qwen-image-2.1` | the Qwen Image 2.1 files above, plus [`qwen-image-2.1-qma-camera-angles.safetensors`](https://huggingface.co/gribbliest/qwen-image-2.1-qma-camera-angles) (loras) |
-| Split layers | `layers-qwen-image-layered` | `qwen_image_layered_bf16.safetensors`, `qwen_image_layered_vae.safetensors`, `qwen_2.5_vl_7b_fp8_scaled.safetensors` |
-| Animate, video generation, video extend | `i2v-minimax-h3`, `t2v-minimax-h3` | `minimax_h3_fl2va_pruned_int8_convrot.safetensors`, `minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors`, `qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors`, `minimax_h3_video_vae_fp16.safetensors`, `minimax_h3_audio_vae_fp32.safetensors` |
-| Reference to video (images, videos, audio) | `r2v-minimax-h3` | `minimax_h3_ref2va_pruned_int8_convrot.safetensors`, plus the text encoder and VAEs above |
-| Motion control | `r2v-minimax-h3` + pose graph built in code | `minimax_h3_fun_controlnet_union_pruned_int8_convrot.safetensors` (model_patches), `sdpose_wholebody_fp16.safetensors` (checkpoints), `rt_detr_v4-x-hgnet_fp16.safetensors` (diffusion_models) |
-| Lip sync | `i2v-minimax-h3` + `MiniMaxH3AddGuide` | the image-to-video files above |
-| Video trim | built in code | core nodes only |
-| Edit Elements | built in code, `erase-lama` | `rapidocr` (Python package, `POST /comfyart/ocr`), SAM3 (`sam3.1_multiplex_fp16.safetensors`), LaMa |
-| Mockup | `mockup-surface` | [comfyui_controlnet_aux](https://github.com/Fannovel16/comfyui_controlnet_aux) Depth Anything V2 (`depth_anything_v2_vitl.pth`, downloaded on first use), `birefnet.safetensors` |
-| Music | `music-ace-step` | `ace_step_v1_3.5b.safetensors` (checkpoints) |
-| Sound effects | `sfx-stable-audio` | `stable-audio-open-1.0.safetensors` (checkpoints), `t5-base.safetensors` (text_encoders) |
-| Voiceover | `speech-kokoro` | [comfyui-kokoro](https://github.com/stavsap/comfyui-kokoro) |
-| Voice cloning | `voice-clone-indextts` | [ComfyUI-Easy-IndexTTS2](https://github.com/yolain/ComfyUI-Easy-IndexTTS2) |
-| Image to 3D | `image-to-3d-trellis2` | `trellis_2_int8_convrot.safetensors`, `trellis_2_shape_vae_bf16.safetensors`, `trellis_2_texture_vae_bf16.safetensors`, `dino_v3_L_naf_fp32.safetensors` (clip_vision), `birefnet.safetensors` |
+模型权重、节点与运行环境需要单独准备，源码齐全不代表所有可选功能均已安装。当前 Mac / Windows 5090 部署、模型配置和整集制作流程见 [部署说明](README.deploy.md)。部署脚本中的 SSH 别名、盘符及目录应按自己的环境配置。
 
-## Nodes and routes
+## 目录
 
-- `ComfyArt Precise UNET Loader` loads a diffusion model with manual cast ops. ComfyUI's `--fast fp8_matrix_mult` turns unscaled fp8 checkpoints such as Qwen Image 2512 into noise; this loader skips that path for the model it loads.
-- `/comfyart/bot/*` (chats, send, stop, branch, answers), `/comfyart/settings` and `/comfyart/mcp` serve the Agent.
-- `POST /comfyart/pdf` renders up to 30 pages of an uploaded PDF to PNG files in `input/comfyart/pdf/` and returns them with each page's text.
-- `POST /comfyart/ocr` reads the text lines of an image (RapidOCR, on device) and returns each line with its box.
+- `src/studio/`、`src/styles/studio.css`：幕间界面、项目总览与剧本修订。
+- `src/ui/`：制作任务、角色与成片交互，以及保留的画布工具。
+- `api/`、`bot/`、`workflows/`：后端接口、Agent 和 ComfyUI 工作流。
+- `deploy/`：本地部署、配音、动画制作、字幕混音与合成脚本。
+- `productions/`：剧集制作规范与示例。
+- `tests/`：回归测试。
 
-## Development
+本仓库不包含本地模型权重、用户项目数据库、私密配置和本次生成的完整视频。`docs/` 中保留了上游公开宣传素材，幕间截图为本项目界面。
 
-`npm run dev` starts Vite with `/api` proxied to `http://127.0.0.1:8188` (override with `COMFY_URL`).
+## 上游与许可
 
-## License
+感谢 [ComfyArt](https://github.com/jtydhr88/ComfyArt) 原作者 Terry Jia 及相关开源项目。
 
-ComfyArt is MIT licensed. The Agent backend in `bot/` and `api/` is adapted from [ComfyTV](https://github.com/jtydhr88/ComfyTV)'s bot (MIT), including providers co-authored by Pengjingyu1992 (DeepSeek Harness, Local LLM, Codex), MuAIGC (Codex, Qwen Code) and Goldlionren (Codex). The canvas is the [tldraw SDK](https://tldraw.dev), which is not: it is bundled in `dist/` under its own license, copied in `licenses/tldraw-LICENSE.md`. Served from `localhost` or plain `http` it runs in development mode without a license key and shows a small "Get a license for production" badge.
+- ComfyArt 扩展代码保留 [MIT 许可证](LICENSE)。
+- tldraw SDK 使用其 [独立许可证](licenses/tldraw-LICENSE.md)，生产使用需遵循对应授权要求。
+- ComfyUI 引擎、其他节点及模型分别遵循各自许可证。
+- 上游功能及说明原文：[English](README.upstream.md) · [中文](README.zh.md)。上游文档中的宣传素材和功能清单不表示本项目已安装全部可选模型。

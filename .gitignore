@@ -6,3 +6,9 @@ __pycache__/
 artifacts/
 engine/ComfyUI/
 engine/comfyui-inpaint-nodes/
+
+# Local configuration and macOS metadata
+.DS_Store
+.env
+.env.*
+!.env.example

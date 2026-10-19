@@ -7,7 +7,7 @@ from typing import Optional
 from server import PromptServer
 
 from ..bot import BotEvent, TurnHandle, TurnRequest, get_provider
-from ..bot._cli_common import COMFY_MCP_ALLOWED_TOOLS, resolve_comfy_mcp_argv
+from ..bot._cli_common import COMFY_MCP_ALLOWED_TOOLS, is_continuation, resolve_comfy_mcp_argv
 from . import bot_asks, chat_store
 from .settings import SETTINGS_SPEC, get_setting
 
@@ -76,6 +76,19 @@ def blocks_text(blocks: list[dict]) -> str:
             parts.append(f"[attached document {b.get('name') or ''}: {b.get('url') or ''}]")
         elif kind == "notice" and b.get("text"):
             parts.append(f"[notice: {b.get('text')}]")
+        elif kind == "skill" and b.get("name"):
+            parts.append(f"[Selected ComfyArt skill: {b['name']!r}. Read it with the skill tool and follow it for this task.]")
+        elif kind == "tool_result" and b.get("name") == "skill" and b.get("status") != "error":
+            parts.append(f"[Previously read skill: {str(b.get('text') or '')[:4000]}]")
+        elif kind == "task":
+            detail = b.get("detail") or {}
+            if not isinstance(detail, dict):
+                continue
+            prompt = str(detail.get('prompt') or '')
+            if is_continuation(prompt):
+                continue  # A misrouted confirmation contains no usable visual brief.
+            urls = [u for u in b.get('srcs') or [] if isinstance(u, str)]
+            parts.append(f"[Direct media result; original visual prompt: {prompt}; URLs: {', '.join(urls)}]")
     return "\n".join(p for p in parts if p.strip()).strip()
 
 
@@ -105,6 +118,12 @@ def _replay_history(chat_id: str, current_message_id: str) -> list[dict]:
     history = []
     for row in rows:
         if row["id"] in skip or row["role"] not in ("user", "assistant"):
+            continue
+        if row['role'] == 'assistant' and any(
+            b.get('type') == 'notice' and 'This turn made no tool calls' in str(b.get('text') or '')
+            for b in row['blocks']
+        ):
+            history.append({'role': 'assistant', 'text': '[The previous assistant response failed to execute any tools. The canvas was not changed by that response.]'})
             continue
         text = blocks_text(row["blocks"])
         if text:
@@ -190,6 +209,7 @@ async def _run_turn(chat: dict, text: str, state: _TurnState, *,
             TurnRequest(
                 chat_id=chat_id,
                 user_text=provider_text if provider_text is not None else text,
+                intent_text=text,
                 resume_token=chat.get("resume_token"),
                 history=history,
                 mcp_endpoint=_mcp_endpoint(chat_id),

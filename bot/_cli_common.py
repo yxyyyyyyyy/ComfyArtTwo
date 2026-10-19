@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import shlex
 import shutil
 import signal
@@ -20,6 +21,12 @@ TURN_MAX_S = 4 * 3600
 TOOL_RESULT_CAP = 4000
 PROBE_CACHE_S = 60
 MCP_TOOL_TIMEOUT_MS = 600_000
+
+_CONTINUATION = re.compile(r"^(继续(?:吧|执行|生成|做)?|开始(?:吧|执行|生成)?|执行|确认|好的?|可以|按这个做|continue|proceed|go ahead|yes|ok(?:ay)?)[\s.!！。]*$", re.I)
+
+
+def is_continuation(text: str) -> bool:
+    return bool(_CONTINUATION.fullmatch(text.strip()))
 
 AGENT_GUIDE = (
     "You are ComfyArt Agent, a design assistant working on the user's live "
@@ -47,6 +54,12 @@ AGENT_GUIDE = (
     "(voiceover, or voice cloning from an audio shape), image_to_3d.\n"
     "- For a task with several steps, show the plan with update_plan and "
     "keep it current as steps finish.\n"
+    "- Carry out clear design requests with tools, including every deliverable "
+    "in the selected skill. A plan alone does not finish the task. Do not ask "
+    "for permission again for routine canvas creation already requested. "
+    "A reply such as 'continue' or '继续' means execute the previous brief and "
+    "plan; recover the company, subject and style from the conversation. Never "
+    "use a bare confirmation word as an image or video prompt.\n"
     "- Layout: create_frame for artboards, add_text, add_shape, update_shapes "
     "to move, resize or restyle, delete_shapes, focus to show the user. "
     "place_html puts a complete web page you write on the canvas; "

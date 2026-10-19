@@ -25,6 +25,7 @@ import { Popover } from './Popover'
 import { t } from '../i18n'
 import { uuid } from '../id'
 import { isEnter } from './keys'
+import { composerSendMode } from '../composerRouting'
 
 const MODES: [AgentMode, string, keyof typeof Icons][] = [['agent', 'Agent', 'agent'], ['image', t('composer.image'), 'genImage'], ['video', t('common.video'), 'genVideo']]
 const REVIEW_PROMPT = t('composer.canvasReviewUseGetCanvas')
@@ -128,26 +129,33 @@ export function Composer({ editor, busy, onError }: { editor: Editor; busy: bool
     extraRefsAtom.set(extraRefsAtom.get().filter((x) => x !== id))
     if (selected.some((s) => s.id === id)) setHidden((h) => [...h, id])
   }
-  const useSkill = (s: Skill) => { skillAtom.set(s); setMenu(null); if (slash) draftAtom.set('') }
+  const useSkill = (s: Skill) => { skillAtom.set(s); agentModeAtom.set('agent'); setMenu(null); if (slash) draftAtom.set('') }
 
   const fail = (e: unknown) => onError(errorText(e))
   const upload = (files: FileList | null) => uploadRefs(editor, Array.from(files ?? [])).catch(fail)
   const imageFiles = (list: DataTransfer) => Array.from(list.files)
   const send = () => {
     const text = draft.trim()
-    if (!text || agentOff) return
+    const sendMode = composerSendMode(mode, text, !!skill, docs.length > 0)
+    if (!text) return
+    if (sendMode === 'agent' && enabled === false) {
+      agentModeAtom.set('agent')
+      onError(t('agentPanel.enableMcpAndAgentIn'))
+      return
+    }
+    agentModeAtom.set(sendMode)
     draftAtom.set('')
     extraRefsAtom.set([])
     kitsAtom.set([])
-    if (mode === 'agent') {
+    if (sendMode === 'agent') {
       skillAtom.set(null)
       docsAtom.set([])
     }
     const targets = refs.length > 1 ? each.targets(refs) : []
     each.reset()
-    void (mode === 'agent'
+    void (sendMode === 'agent'
       ? sendToAgent(editor, text, refs, skill, kits, docs, targets.length ? eachLine(refs, targets) : '')
-      : generateDirect(editor, text, eachRuns(refs, targets, () => text), mode === 'video', onError)).catch(fail)
+      : generateDirect(editor, text, eachRuns(refs, targets, () => text), sendMode === 'video', onError)).catch(fail)
   }
 
   const filtered = slash ? skills.filter((s) => s.name.includes(slash[1])) : skills

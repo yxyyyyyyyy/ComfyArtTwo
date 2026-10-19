@@ -244,6 +244,54 @@ class TestAgentLoop:
         assert result.aborted is True
 
 
+class TestSkillExecution:
+    async def test_continue_recovers_from_text_only_reply_before_finishing(self, monkeypatch):
+        provider = LocalLlmProvider(base_url=lambda: 'http://x/v1')
+        replies = [
+            {'content': 'Pretend result: fake.png'},
+            {'content': '', 'tool_calls': [{'id': 't1', 'function': {
+                'name': 'generate_image', 'arguments': '{"prompt":"Blue geometric technology company logo"}'}}]},
+            {'content': 'Created the logo.'},
+        ]
+
+        async def request(session, method, url, **kwargs):
+            if url.endswith('/chat/completions'):
+                return {'choices': [{'message': replies.pop(0)}]}
+            return {'result': {'tools': [{'name': 'generate_image'}]}}
+
+        async def call(*args):
+            return '{"ids":["shape:logo"]}', []
+
+        monkeypatch.setattr(provider, '_request_json', request)
+        monkeypatch.setattr(provider, '_mcp_call_tool', call)
+        events = []
+        result = await provider.send(TurnRequest(chat_id='c', user_text='Remembered preferences: blue\n\n继续\n\n[Attached reference]', intent_text='继续',
+            history=[{'role': 'user', 'text': '[Selected ComfyArt skill: 品牌识别] 链式感知公司'}],
+            mcp_endpoint='http://x/mcp', model='m'), _collect(events), TurnHandle())
+        assert not result.error
+        assert any(e.name == 'generate_image' and e.t == 'tool_use' for e in events)
+        assert not any('fake.png' in e.text for e in events)
+
+    async def test_repeated_nonexecution_is_an_error_not_a_successful_design(self, monkeypatch):
+        provider = LocalLlmProvider(base_url=lambda: 'http://x/v1')
+        calls = []
+
+        async def request(session, method, url, **kwargs):
+            if url.endswith('/chat/completions'):
+                calls.append(1)
+                return {'choices': [{'message': {'content': 'All done: fake.png'}}]}
+            return {'result': {'tools': [{'name': 'generate_image'}]}}
+
+        monkeypatch.setattr(provider, '_request_json', request)
+        events = []
+        result = await provider.send(TurnRequest(chat_id='c',
+            user_text="Use the ComfyArt skill 'Brand' for this task: technology company branding",
+            mcp_endpoint='http://x/mcp', model='m'), _collect(events), TurnHandle())
+        assert 'did not execute' in result.error
+        assert len(calls) == 3
+        assert not any(e.t == 'delta' for e in events)
+
+
 def _collect(events: list[BotEvent]):
     async def emit(ev: BotEvent) -> None:
         events.append(ev)

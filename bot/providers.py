@@ -29,6 +29,7 @@ class TurnRequest:
     attachments: list[dict] = field(default_factory=list)
     model: str = ""
     comfy_mcp_argv: list[str] = field(default_factory=list)
+    intent_text: Optional[str] = None
 
 
 @dataclass

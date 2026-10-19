@@ -17,6 +17,7 @@ from ._cli_common import (
     PROBE_CACHE_S,
     TOOL_RESULT_CAP,
     merge_usage,
+    is_continuation,
 )
 from .providers import (
     AgentProvider,
@@ -40,6 +41,12 @@ _HISTORY_CHAR_CAP = 16_000
 _THINK_RE = re.compile(r"<think>([\s\S]*?)</think>")
 
 _SYSTEM_PROMPT = AGENT_GUIDE
+_DESIGN_WRITES = {
+    'generate_image', 'generate_video', 'edit_image', 'animate_image',
+    'add_text', 'add_shape', 'create_frame', 'update_shapes', 'place_html',
+    'create_slides', 'create_mockup', 'place_design', 'text_to_speech',
+    'generate_music', 'generate_sound_effect', 'image_to_3d',
+}
 
 
 def _user_content(text: str, attachments: Optional[list[dict]]):
@@ -222,6 +229,8 @@ class LocalLlmProvider(AgentProvider):
                        "params": {"name": name, "arguments": arguments}},
             timeout=560 if name == "ask_user" else 200,
         )
+        if data.get('error'):
+            return '[tool error] ' + json.dumps(data['error'], ensure_ascii=False), []
         result = data.get("result") or {}
         content = result.get("content")
         text = self._extract_text(content)
@@ -324,6 +333,12 @@ class LocalLlmProvider(AgentProvider):
                 ]
 
                 usage: Optional[dict] = None
+                skill_task = 'Use the ComfyArt skill ' in turn.user_text or (
+                    is_continuation(turn.intent_text if turn.intent_text is not None else turn.user_text) and any(
+                        '[Selected ComfyArt skill:' in str(m.get('text') or '')
+                        for m in turn.history or []))
+                performed_write = False
+                execution_retries = 0
                 for _ in range(_MAX_ITERATIONS):
                     if handle.stop_requested:
                         return TurnResult(aborted=True, usage=usage)
@@ -348,10 +363,23 @@ class LocalLlmProvider(AgentProvider):
 
                     if reasoning.strip():
                         await emit(BotEvent(t="thinking", text=reasoning.strip()))
+                    if not tool_calls:
+                        if tools and skill_task and not performed_write:
+                            if execution_retries >= 2:
+                                return TurnResult(error='The local model did not execute the requested design tools. No design result was verified; please retry with a more capable Agent.', usage=usage)
+                            execution_retries += 1
+                            messages.extend([
+                                {'role': 'assistant', 'content': content or 'No tools called.'},
+                                {'role': 'user', 'content': 'The requested design is not complete: you have not created any deliverable with tools. Execute the original company/subject brief and selected skill now. Use detailed visual prompts based on that brief, not a confirmation word or a copied generation log. Read the skill if needed, call the creation tools, then wait for and inspect the results. Do not ask for the same permission again.'},
+                            ])
+                            await emit(BotEvent(t='thinking', text='Checking execution: the selected design skill has no created deliverable yet; retrying tool execution.'))
+                            continue
+                        if content:
+                            await emit(BotEvent(t="delta", text=content))
+                        return TurnResult(usage=usage)
+
                     if content:
                         await emit(BotEvent(t="delta", text=content))
-                    if not tool_calls:
-                        return TurnResult(usage=usage)
 
                     messages.append({
                         "role": "assistant",
@@ -387,6 +415,9 @@ class LocalLlmProvider(AgentProvider):
                         except _NET_ERRORS as e:
                             result_text = f"[error] {type(e).__name__}: {e}"
                             tool_failed = True
+                        tool_failed = tool_failed or result_text.startswith('[tool error]')
+                        if name in _DESIGN_WRITES and not tool_failed:
+                            performed_write = True
                         if len(result_text) > TOOL_RESULT_CAP:
                             result_text = (
                                 result_text[:TOOL_RESULT_CAP]

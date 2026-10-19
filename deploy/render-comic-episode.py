@@ -188,7 +188,7 @@ def video_graph():
         graph[n(114)] = {'class_type': 'LoadImage', 'inputs': {'image': PREFIX + '/' + first.name + ' [output]'}}
         graph[n(104)] = copy.deepcopy(base['105:104']); graph[n(104)]['inputs'].update(first_frame=[n(114), 0], width=512, height=896, prompt=scene['motion'])
         graph[n(16)] = copy.deepcopy(base['105:16']); graph[n(16)]['inputs']['conditioning'] = [n(104), 0]
-        graph[n(15)] = {'class_type': 'RandomNoise', 'inputs': {'noise_seed': 2026101960 + int(scene['id'])}}
+        graph[n(15)] = {'class_type': 'RandomNoise', 'inputs': {'noise_seed': 2026101960 + int(scene['id']) + 1000 * (scene.get('motion_revision', 1) - 1)}}
         graph[n(14)] = copy.deepcopy(base['105:14']); graph[n(14)]['inputs'].update(noise=[n(15), 0], guider=[n(16), 0], latent_image=[n(104), 1])
         graph[n(10)] = copy.deepcopy(base['105:10']); graph[n(10)]['inputs']['samples'] = [n(14), 0]
         graph[n(23)] = copy.deepcopy(base['105:23']); graph[n(23)]['inputs']['samples'] = [n(14), 0]

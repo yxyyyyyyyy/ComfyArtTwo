@@ -23,6 +23,7 @@ a = p.parse_args()
 SPEC = json.loads(a.spec.read_text(encoding='utf-8'))
 D = a.output.resolve(); edition = 'illustrated' if a.illustrated_only else 'final'
 R = D / ('render-illustrated' if a.illustrated_only else 'render'); R.mkdir(exist_ok=True)
+TARGET = D / ('illustrated.mp4' if a.illustrated_only else SPEC.get('output_filename', 'final.mp4'))
 FF = imageio_ffmpeg.get_ffmpeg_exe()
 SR = 24000; FPS = 24; W = 720; H = 1280; TOTAL = 360
 
@@ -200,7 +201,7 @@ for cue in timeline:
             split=min(range(max(5,len(text)//2-5),min(len(text)-4,len(text)//2+6)),key=lambda j:abs(j-len(text)/2)+(0 if text[j-1] in '，：' else 4))
             text=text[:split]+r'\N'+text[split:]
         caption(pos,pos+length,'Body',r'{\fad(65,70)}'+text);pos+=length
-caption(355,360,'Small',r'{\fad(600,700)\pos(360,1140)}第一集终　／　未完待续')
+caption(355,360,'Title',r'{\fad(600,700)\pos(360,650)}未完待续')
 
 for i,segment in enumerate(segments):
     dst=R/f'segment-{i:02}.mp4'; ass=R/f'captions-{i:02}.ass';start=segment['start'];end=start+segment['duration']
@@ -227,8 +228,8 @@ for i,segment in enumerate(segments):
 
 (R/'segments.txt').write_text(''.join(f"file 'segment-{i:02}.mp4'\n" for i in range(len(segments))),encoding='utf-8')
 state(done=len(segments),total=len(segments),stage='导出完整六分钟第一集')
-ff(['-f','concat','-safe','1','-i','segments.txt','-i','master.wav','-map','0:v:0','-map','1:a:0','-c:v','copy','-c:a','aac','-b:a','192k','-ar','48000','-t',TOTAL,'-movflags','+faststart',D/(edition+'.mp4')])
-with av.open(str(D/(edition+'.mp4'))) as c:
+ff(['-f','concat','-safe','1','-i','segments.txt','-i','master.wav','-map','0:v:0','-map','1:a:0','-c:v','copy','-c:a','aac','-b:a','192k','-ar','48000','-t',TOTAL,'-movflags','+faststart',TARGET])
+with av.open(str(TARGET)) as c:
     v=c.streams.video[0]; duration=float(c.duration/av.time_base)
     assert (v.width,v.height)==(W,H) and abs(duration-TOTAL)<.2 and len(c.streams.audio)>0
     verification={'seconds':duration,'width':W,'height':H,'fps':float(v.average_rate),'edition':edition,'native_video_seconds':0 if a.illustrated_only else sum(s.get('native_seconds',15) for s in SPEC['scenes']),'comic_motion_seconds':TOTAL if a.illustrated_only else TOTAL-sum(s.get('native_seconds',15) for s in SPEC['scenes']),'voice_speed':speed,'voices':len(timeline),'scenes':6,'status':'verified'}

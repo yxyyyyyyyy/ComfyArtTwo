@@ -35,6 +35,8 @@ PROGRESS = a.output / 'progress.json'
 BASE = 'http://127.0.0.1:8188'
 SESSION = requests.Session(); SESSION.trust_env = False
 state = json.loads(PROGRESS.read_text(encoding='utf-8')) if PROGRESS.exists() else {}
+state.pop('render', None)
+state.pop('result', None)
 state.update(id=SPEC['id'], title=SPEC['title'], target_seconds=SPEC['target_seconds'], scenes=state.get('scenes') or [{'id': s['id'], 'title': s['title'], 'panels': []} for s in SPEC['scenes']])
 PREFIX = 'comfyart/' + SPEC['id']
 
@@ -94,6 +96,8 @@ def scan():
         found = files('clip-' + scene['id'] + '_*.mp4')
         if found:
             scene['clip'] = {'filename': found[-1].name, 'subfolder': PREFIX, 'type': 'output'}; clips += 1
+        else:
+            scene.pop('clip', None)
     return images, clips
 
 
@@ -193,7 +197,7 @@ def video_graph():
         graph[n(10)] = copy.deepcopy(base['105:10']); graph[n(10)]['inputs']['samples'] = [n(14), 0]
         graph[n(23)] = copy.deepcopy(base['105:23']); graph[n(23)]['inputs']['samples'] = [n(14), 0]
         graph[n(91)] = copy.deepcopy(base['105:91']); graph[n(91)]['inputs'].update(images=[n(10), 0], audio=[n(23), 0])
-        graph[n(92)] = copy.deepcopy(base['92']); graph[n(92)]['inputs'].update(video=[n(91), 0], filename_prefix=PREFIX + '/clip-' + scene['id'])
+        graph[n(92)] = copy.deepcopy(base['92']); graph[n(92)]['inputs'].update(video=[n(91), 0], filename_prefix=PREFIX + '/clip-' + scene['id'] + ('_r' + str(scene['motion_revision']) if scene.get('motion_revision', 1) > 1 else ''))
         count += 1
         break  # One native clip per prompt keeps conditioning and model memory bounded.
     return graph if count else {}
@@ -235,7 +239,7 @@ try:
         child([r'F:\ComfyArt\speech\.venv\Scripts\python.exe', ROOT / 'deploy/story-speech.py', '--story', a.output / 'voice-spec.json', '--output', a.output / 'voice'], 'voices', '本地分角色中文配音')
         run_graph('videos', video_graph)
         child([sys.executable, ROOT / 'deploy/render-comic-timeline.py', '--spec', a.spec, '--output', a.output], 'render', '漫画动画、声音和字幕合成')
-        update(status='done', phase='done', stage='第一集成片已完成', result={'filename': 'final.mp4', 'subfolder': PREFIX, 'type': 'output'}, seconds=360)
+        update(status='done', phase='done', stage='第一集成片已完成', result={'filename': SPEC.get('output_filename', 'final.mp4'), 'subfolder': PREFIX, 'type': 'output'}, seconds=360)
 except InterruptedError as e:
     update(status='paused', stage=str(e))
 except Exception as e:

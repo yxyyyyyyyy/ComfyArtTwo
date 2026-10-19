@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Editor } from 'tldraw'
 import { api, viewUrl, type ImageRef } from '../comfy'
-import { fileSrc, placeMedia, toMedia } from '../jobs'
+import { fileSrc, mediaAsset, placeMedia, toMedia } from '../jobs'
 import { saveNow } from '../autosave'
 import { filmActivityAtom } from './filmState'
 
@@ -27,6 +27,7 @@ export function EpisodeProduction({ editor, spec, visible, onClose }: { editor: 
     const poll = async () => {
       if (polling.current) return
       polling.current = true
+      let saving = false
       try {
         const r = await api(`/comfyart/video/production/${spec.id}?_=${Date.now()}`, { signal: AbortSignal.timeout(12000) })
         if (!r.ok) throw new Error('等待任务进度')
@@ -36,16 +37,22 @@ export function EpisodeProduction({ editor, spec, visible, onClose }: { editor: 
         const activity = data.phase === 'videos' ? `动画 ${data.clips_done || 0}/6 · ${data.stage}${data.stage === '视频采样' ? ` ${data.value}/${data.maximum} 步` : ''}` : data.phase === 'voices' ? `角色配音 ${data.voices_done || 0}/${data.voices_total || 35}` : data.phase === 'images' ? `剧情画面 ${data.images_done || 0}/12` : data.phase === 'render' ? `剪辑字幕 ${data.render?.done || 0}/${data.render?.total || 18}` : data.stage
         filmActivityAtom.set({ busy: ['running', 'reconnecting', 'review'].includes(data.status), label: activity })
         if (data.status === 'done' && data.result) {
+          saving = true
           const src = viewUrl(data.result)
           if (!editor.getCurrentPageShapes().some((s) => fileSrc(editor, s) === src)) {
             const media = await toMedia(data.result, 'video'); const center = editor.getViewportPageBounds().center
-            placeMedia(editor, media, spec.title + ' · 完整配音漫剧', center.x, center.y, 480)
+            const previousPlan = editor.getDocumentSettings().meta.videoStory as { result?: string; production?: EpisodeSpec } | undefined
+            const previous = previousPlan?.production?.id === spec.id && previousPlan.result ? editor.getCurrentPageShapes().find((s) => fileSrc(editor, s) === previousPlan.result) : undefined
+            const asset = mediaAsset(editor, previous)
+            if (asset?.type === 'video') editor.updateAssets([{ id: asset.id, type: 'video', props: { ...asset.props, src, w: media.w, h: media.h, name: spec.title + ' · 完整配音漫剧' } }])
+            else placeMedia(editor, media, spec.title + ' · 完整配音漫剧', center.x, center.y, 480)
           }
           const doc = editor.getDocumentSettings()
           const plan = doc.meta.videoStory as Record<string, unknown>
           if (plan?.result !== src) { editor.updateDocumentSettings({ meta: { ...doc.meta, videoStory: { ...plan, result: src } as any } }); await saveNow() }
+          setError('')
         }
-      } catch { if (alive) setDisconnected(true) }
+      } catch (e) { if (alive) { if (saving) setError('成片已生成，但画布保存失败：' + (e instanceof Error ? e.message : String(e))); else setDisconnected(true) } }
       finally { polling.current = false }
     }
     void poll(); const timer = setInterval(() => void poll(), 3000)
@@ -72,9 +79,9 @@ export function EpisodeProduction({ editor, spec, visible, onClose }: { editor: 
         <div className="ca-film__steps">{['① 剧情画面', '② 分角色配音', '③ 关键动画', '④ 剪辑字幕'].map((label, i) => <span key={label} data-active={phase >= i || undefined}>{label}</span>)}</div>
         <div className="ca-film__meter"><strong>{job?.status === 'done' ? '完整一集已完成' : job?.phase === 'images' ? '漫画画面' : job?.phase === 'videos' ? '关键动作动画' : job?.phase === 'voices' ? '角色配音' : '制作进度'} {done}/{total}</strong><span>6 个主要场景 · 自动合成一条视频</span></div>
         <progress aria-label="当前制作阶段进度" value={done} max={total} />
-        <div className="ca-film__live" role="status"><strong>{disconnected ? '连接暂时中断 · 正在重连' : job?.render?.stage || job?.stage || '正在连接制作任务'}</strong><span>{job?.stage === '视频采样' && job.maximum ? `${job.value}/${job.maximum} 步` : ''}</span></div>
+        <div className="ca-film__live" role="status"><strong>{disconnected ? '连接暂时中断 · 正在重连' : job?.status === 'done' ? '第一集已完成 · 可直接播放或下载' : job?.status === 'paused' ? '制作已暂停 · 已完成素材保留' : (job?.phase === 'render' ? job.render?.stage : '') || job?.stage || '正在连接制作任务'}</strong><span>{job?.stage === '视频采样' && job.maximum ? `${job.value}/${job.maximum} 步` : ''}</span></div>
         {!disconnected && job?.stage === '视频采样' && !!job.maximum && <progress aria-label="关键动画采样进度" value={job.value} max={job.maximum} />}
-        <small className="ca-film__hint">{job ? `任务心跳：${Math.max(0, Math.floor(Date.now() / 1000 - job.heartbeat))} 秒前。` : ''}制作在 5090 上运行，收起或刷新页面不会重复提交。</small>
+        <small className="ca-film__hint">{job?.status === 'done' ? '本集已完成，文件保存在 5090 的 F 盘，可直接播放或下载。' : `${job ? `任务心跳：${Math.max(0, Math.floor(Date.now() / 1000 - job.heartbeat))} 秒前。` : ''}制作在 5090 上运行，收起或刷新页面不会重复提交。`}</small>
         {job?.preview_render && !job.result && <small className="ca-film__hint">配音动态漫画版合成：{job.preview_render.done}/{job.preview_render.total} · {job.preview_render.stage}</small>}
         {(job?.error || error) && <div role="alert" className="ca-film__error">{error || job?.error}</div>}
       </div>

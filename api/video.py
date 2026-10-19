@@ -273,6 +273,29 @@ async def assembly_status(request):
     return web.json_response(state)
 
 
+@routes.get('/comfyart/video/production/{pid}')
+async def production_status(request):
+    request_user(request)
+    pid = request.match_info['pid']
+    if not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,63}', pid):
+        return error('invalid production id', 400)
+    spec = Path(__file__).resolve().parents[1] / 'productions' / pid / 'episode.json'
+    if not spec.is_file():
+        return error('production not found', 404)
+    path = Path(folder_paths.get_output_directory()) / 'comfyart' / pid / 'progress.json'
+    # Return JSON after closing its file; streaming /view holds a Windows rename lock.
+    data = read_json(str(path), None)
+    if not data:
+        return error('production has not started', 404)
+    root = path.parent
+    preview = read_json(str(root / 'illustrated-verification.json'), {})
+    if preview.get('status') == 'verified' and (root / 'illustrated.mp4').is_file():
+        data['preview'] = {'filename': 'illustrated.mp4', 'subfolder': 'comfyart/' + pid, 'type': 'output'}
+    else:
+        data['preview_render'] = read_json(str(root / 'illustrated-progress.json'), None)
+    return web.json_response(data)
+
+
 @routes.post('/comfyart/video/production/{pid}/control')
 async def production_control(request):
     request_user(request)

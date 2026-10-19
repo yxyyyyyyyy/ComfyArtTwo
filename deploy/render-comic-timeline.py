@@ -18,15 +18,17 @@ import soundfile as sf
 p = argparse.ArgumentParser()
 p.add_argument('--spec', type=Path, required=True)
 p.add_argument('--output', type=Path, required=True)
+p.add_argument('--illustrated-only', action='store_true', help='Produce an explicit camera-motion comic edition without native model clips')
 a = p.parse_args()
 SPEC = json.loads(a.spec.read_text(encoding='utf-8'))
-D = a.output.resolve(); R = D / 'render'; R.mkdir(exist_ok=True)
+D = a.output.resolve(); edition = 'illustrated' if a.illustrated_only else 'final'
+R = D / ('render-illustrated' if a.illustrated_only else 'render'); R.mkdir(exist_ok=True)
 FF = imageio_ffmpeg.get_ffmpeg_exe()
 SR = 24000; FPS = 24; W = 720; H = 1280; TOTAL = 360
 
 
 def state(**data):
-    path = D / 'render-progress.json'; tmp = path.with_suffix('.tmp')
+    path = D / ('illustrated-progress.json' if a.illustrated_only else 'render-progress.json'); tmp = path.with_suffix('.tmp')
     tmp.write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8'); tmp.replace(path)
 
 
@@ -85,7 +87,7 @@ for i, scene in enumerate(SPEC['scenes']):
     cut = round(end_cue['start']*FPS)/FPS if end_cue else start+native+round((length-native)*.58*FPS)/FPS
     cut = min(end-1, max(start+native+1, cut))
     segments += [
-        {'scene':scene['id'],'start':start,'duration':native,'kind':'native','panel':'a'},
+        {'scene':scene['id'],'start':start,'duration':native,'kind':'comic' if a.illustrated_only else 'native','panel':'a'},
         {'scene':scene['id'],'start':start+native,'duration':cut-start-native,'kind':'comic','panel':edit.get('middle_panel','b')},
         {'scene':scene['id'],'start':cut,'duration':end-cut,'kind':'comic','panel':edit.get('end_panel','b' if i==5 else 'a')},
     ]
@@ -107,6 +109,7 @@ pad = (.003*np.sin(2*np.pi*55*t)+.002*np.sin(2*np.pi*58.27*t)+.0018*np.sin(2*np.
 bed = np.column_stack((pad+air*.007,pad+np.roll(air,731)*.007)).astype('float32')
 # Retain the generated ambience at scene openings; illustrated dialogue sections use a continuous original bed.
 for i, scene in enumerate(SPEC['scenes']):
+    if a.illustrated_only: continue
     path = sorted(D.glob('clip-'+scene['id']+'_*.mp4'))[-1]
     raw = ff(['-i',path,'-t',scene.get('native_seconds',15),'-vn','-ac','2','-ar',SR,'-f','f32le','pipe:1'],True)
     env = np.frombuffer(raw,dtype='<f4').reshape(-1,2).copy(); env *= .13
@@ -214,12 +217,12 @@ for i,segment in enumerate(segments):
 
 (R/'segments.txt').write_text(''.join(f"file 'segment-{i:02}.mp4'\n" for i in range(len(segments))),encoding='utf-8')
 state(done=len(segments),total=len(segments),stage='导出完整六分钟第一集')
-ff(['-f','concat','-safe','1','-i','segments.txt','-i','master.wav','-map','0:v:0','-map','1:a:0','-c:v','copy','-c:a','aac','-b:a','192k','-ar','48000','-t',TOTAL,'-movflags','+faststart',D/'final.mp4'])
-with av.open(str(D/'final.mp4')) as c:
+ff(['-f','concat','-safe','1','-i','segments.txt','-i','master.wav','-map','0:v:0','-map','1:a:0','-c:v','copy','-c:a','aac','-b:a','192k','-ar','48000','-t',TOTAL,'-movflags','+faststart',D/(edition+'.mp4')])
+with av.open(str(D/(edition+'.mp4'))) as c:
     v=c.streams.video[0]; duration=float(c.duration/av.time_base)
     assert (v.width,v.height)==(W,H) and abs(duration-TOTAL)<.2 and len(c.streams.audio)>0
-    verification={'seconds':duration,'width':W,'height':H,'fps':float(v.average_rate),'native_video_seconds':sum(s.get('native_seconds',15) for s in SPEC['scenes']),'comic_motion_seconds':TOTAL-sum(s.get('native_seconds',15) for s in SPEC['scenes']),'voice_speed':speed,'voices':len(timeline),'scenes':6,'status':'verified'}
-(D/'timeline.json').write_text(json.dumps({'bounds':bounds,'cues':timeline,'segments':segments,'verification':verification},ensure_ascii=False,indent=2),encoding='utf-8')
-(D/'verification.json').write_text(json.dumps(verification,ensure_ascii=False,indent=2),encoding='utf-8')
+    verification={'seconds':duration,'width':W,'height':H,'fps':float(v.average_rate),'edition':edition,'native_video_seconds':0 if a.illustrated_only else sum(s.get('native_seconds',15) for s in SPEC['scenes']),'comic_motion_seconds':TOTAL if a.illustrated_only else TOTAL-sum(s.get('native_seconds',15) for s in SPEC['scenes']),'voice_speed':speed,'voices':len(timeline),'scenes':6,'status':'verified'}
+(D/('illustrated-timeline.json' if a.illustrated_only else 'timeline.json')).write_text(json.dumps({'bounds':bounds,'cues':timeline,'segments':segments,'verification':verification},ensure_ascii=False,indent=2),encoding='utf-8')
+(D/('illustrated-verification.json' if a.illustrated_only else 'verification.json')).write_text(json.dumps(verification,ensure_ascii=False,indent=2),encoding='utf-8')
 state(done=len(segments),total=len(segments),stage='成片已完成并通过时长与音轨检查')
 print(json.dumps(verification,ensure_ascii=False),flush=True)

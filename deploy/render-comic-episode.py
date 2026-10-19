@@ -43,7 +43,12 @@ def update(**values):
     state.update(values, heartbeat=time.time())
     tmp = PROGRESS.with_suffix('.tmp')
     tmp.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding='utf-8')
-    os.replace(tmp, PROGRESS)
+    for attempt in range(20):
+        try:
+            os.replace(tmp, PROGRESS); return
+        except PermissionError:
+            if attempt == 19: raise
+            time.sleep(.1)
 
 
 def request(method, path, **kwargs):
@@ -132,7 +137,7 @@ def run_graph(phase, builder):
                         errors = [m[1].get('exception_message', '生成中断') for m in history['status'].get('messages', []) if m[0] in ('execution_error', 'execution_interrupted')]
                         if retries >= 1: raise RuntimeError('; '.join(errors))
                         retries += 1; update(stage='本段失败，保留成功素材并重试一次'); break
-                    scan(); update(); return
+                    scan(); update(); retries = 0; break
                 progress = request('GET', '/comfyart/video/render/' + job['id'])
                 if progress['status'] == 'missing':
                     missing_since = missing_since or time.time()
@@ -190,6 +195,7 @@ def video_graph():
         graph[n(91)] = copy.deepcopy(base['105:91']); graph[n(91)]['inputs'].update(images=[n(10), 0], audio=[n(23), 0])
         graph[n(92)] = copy.deepcopy(base['92']); graph[n(92)]['inputs'].update(video=[n(91), 0], filename_prefix=PREFIX + '/clip-' + scene['id'])
         count += 1
+        break  # One native clip per prompt keeps conditioning and model memory bounded.
     return graph if count else {}
 
 

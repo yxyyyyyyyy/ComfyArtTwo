@@ -135,8 +135,10 @@ python3 deploy/remote.py deploy/setup-story-speech.ps1
 
 ### 六分钟第一集漫剧
 
-`productions/cellar-episode-01/` 保留用户第一集原稿、扩写后的 34 段旁白及对白、人物设定和六场景画面规范。`deploy/render-comic-episode.py` 在 5090 独立后台任务中按顺序生成剧情漫画、分角色中文配音、六段关键动作动画，再调用 `deploy/render-comic-timeline.py` 合成一集。工作台读取输出目录的原子进度文件，收起和刷新页面不会重复提交。
+`productions/cellar-episode-01/` 保留用户第一集原稿、扩写后的 34 段旁白及对白、人物设定和六场景画面规范。`deploy/render-comic-episode.py` 在 5090 独立后台任务中按顺序生成剧情漫画、分角色中文配音、六段关键动作动画，再调用 `deploy/render-comic-timeline.py` 合成一集。工作台通过短连接 JSON 接口读取进度，读完立即关闭文件，避免 Windows 视频文件服务持有句柄时阻止原子替换；写入端对短暂文件占用进行有限重试。收起和刷新页面不会重复提交。
 
 在 5090 上运行 `deploy/start-comic-episode.ps1`，一次启动整集流程。`-Phase images` 用于先做画面验收，`-RegisterOnly` 更新任务定义而不启动。后台任务名为 `ComfyArt-Episode-cellar-episode-01`，暂停和继续只针对这个任务。ComfyUI 连接中断时保留任务编号，确认运行记录丢失后只重试缺失素材一次，不结束同机其他 GPU 程序。`F:\ComfyArt\ComfyUI\output\comfyart\cellar-episode-01` 保存画面、动画、逐段 WAV、字幕、完整成片及验证记录。
 
 本集目标为 720×1280、24fps、360 秒，采用动态漫画：六段约 10 秒的原生图生动画与剧情插画的镜头推拉结合。图生动画不会整体拉长到六分钟；其余时长由漫画对白、旁白及悬疑节奏组织。角色使用本地 Qwen3-TTS 预置音色，字幕跟随各段实际语音时长；对白改变时会验证文本与音色后重做相应声音。日本语风格的无歌词哼唱为本地合成。原稿情节中的伤害以离画声音、监控远景和遗留物表达，不制作露骨画面。
+
+关键动作按一场一个 GPU 请求依次生成，避免同批多个条件编码叠加内存。`worker.out.log` / `worker.err.log` 记录独立进程退出信息，后台包装脚本会把异常退出转成可见失败状态。配音全部缓存命中时不会加载语音模型。`--illustrated-only` 可单独导出明确标注的 `illustrated.mp4` 配音动态漫画预览；它不冒充原生人物动作，工作台将预览和最终动作版区分展示。

@@ -11,7 +11,7 @@ interface Production {
   status: string; phase: string; stage: string; heartbeat: number; error?: string; value?: number; maximum?: number
   images_done?: number; clips_done?: number; voices_done?: number; voices_total?: number
   render?: { done: number; total: number; stage: string }
-  scenes: { id: string; title: string; panels: ImageRef[]; clip?: ImageRef }[]; result?: ImageRef; seconds?: number
+  scenes: { id: string; title: string; panels: ImageRef[]; clip?: ImageRef }[]; result?: ImageRef; preview?: ImageRef; preview_render?: { done: number; total: number; stage: string }; seconds?: number
 }
 
 export function EpisodeProduction({ editor, spec, visible, onClose }: { editor: Editor; spec: EpisodeSpec; visible: boolean; onClose: () => void }) {
@@ -28,7 +28,7 @@ export function EpisodeProduction({ editor, spec, visible, onClose }: { editor: 
       if (polling.current) return
       polling.current = true
       try {
-        const r = await api(`/view?filename=progress.json&subfolder=comfyart%2F${spec.id}&type=output&_=${Date.now()}`, { signal: AbortSignal.timeout(12000) })
+        const r = await api(`/comfyart/video/production/${spec.id}?_=${Date.now()}`, { signal: AbortSignal.timeout(12000) })
         if (!r.ok) throw new Error('等待任务进度')
         const data: Production = await r.json()
         if (!alive) return
@@ -60,6 +60,7 @@ export function EpisodeProduction({ editor, spec, visible, onClose }: { editor: 
   }
   const scene = job?.scenes[selected]
   const detail = spec.scenes[selected]
+  const playable = job?.result || job?.preview
   const phases = ['images', 'voices', 'videos', 'render', 'done']
   const phase = phases.indexOf(job?.phase || 'images')
   const [done, total] = job?.phase === 'images' ? [job.images_done || 0, 12] : job?.phase === 'videos' ? [job.clips_done || 0, 6] : job?.phase === 'voices' ? [job.voices_done || 0, job.voices_total || 35] : job?.phase === 'render' ? [job.render?.done || 0, job.render?.total || 18] : job?.status === 'done' ? [1, 1] : [0, 1]
@@ -73,14 +74,15 @@ export function EpisodeProduction({ editor, spec, visible, onClose }: { editor: 
         <div className="ca-film__live" role="status"><strong>{disconnected ? '连接暂时中断 · 正在重连' : job?.render?.stage || job?.stage || '正在连接制作任务'}</strong><span>{job?.stage === '视频采样' && job.maximum ? `${job.value}/${job.maximum} 步` : ''}</span></div>
         {!disconnected && job?.stage === '视频采样' && !!job.maximum && <progress aria-label="关键动画采样进度" value={job.value} max={job.maximum} />}
         <small className="ca-film__hint">{job ? `任务心跳：${Math.max(0, Math.floor(Date.now() / 1000 - job.heartbeat))} 秒前。` : ''}制作在 5090 上运行，收起或刷新页面不会重复提交。</small>
+        {job?.preview_render && !job.result && <small className="ca-film__hint">配音动态漫画版合成：{job.preview_render.done}/{job.preview_render.total} · {job.preview_render.stage}</small>}
         {(job?.error || error) && <div role="alert" className="ca-film__error">{error || job?.error}</div>}
       </div>
       <div className="ca-film__layout">
-        <nav className="ca-film__nav" aria-label="第一集主要场景">{spec.scenes.map((s, i) => <button key={s.id} className="ca-film__navitem" data-on={!final && selected === i || undefined} onClick={() => { setSelected(i); setFinal(false) }}><b>{s.id}</b><span>{s.title}<small>{job?.scenes[i]?.clip ? '✓ 动画素材已完成' : job?.scenes[i]?.panels.length ? '✓ 剧情画面已生成' : '待生成'}</small></span></button>)}{job?.result && <button className="ca-film__navitem" data-on={final || undefined} onClick={() => setFinal(true)}>▶ 播放完整第一集</button>}</nav>
+        <nav className="ca-film__nav" aria-label="第一集主要场景">{spec.scenes.map((s, i) => <button key={s.id} className="ca-film__navitem" data-on={!final && selected === i || undefined} onClick={() => { setSelected(i); setFinal(false) }}><b>{s.id}</b><span>{s.title}<small>{job?.scenes[i]?.clip ? '✓ 动画素材已完成' : job?.scenes[i]?.panels.length ? '✓ 剧情画面已生成' : '待生成'}</small></span></button>)}{playable && <button className="ca-film__navitem" data-on={final || undefined} onClick={() => setFinal(true)}>▶ {job?.result ? '播放完整第一集' : '播放动态漫画版预览'}</button>}</nav>
         <div className="ca-film__content">
-          {final && job?.result ? <><h3>第一集完整成片 · {job.seconds} 秒</h3><video className="ca-film__preview" controls src={viewUrl(job.result)} /><a href={viewUrl(job.result)} download>下载完整第一集</a></> : <>
+          {final && playable ? <><h3>{job?.result ? '第一集完整成片' : '第一集配音动态漫画版 · 人物动作动画尚未完成'} · 360 秒</h3><video className="ca-film__preview ca-episode-video" controls preload="metadata" poster={job?.scenes[0]?.panels[0] ? viewUrl(job.scenes[0].panels[0]) : undefined} src={viewUrl(playable)} /><a href={viewUrl(playable)} download>下载六分钟视频</a></> : <>
             <h3>{detail.title}</h3>
-            {scene?.clip && <video className="ca-film__preview" controls preload="metadata" src={viewUrl(scene.clip)} />}
+            {scene?.clip && <video className="ca-film__preview ca-episode-video" controls preload="metadata" poster={scene.panels[0] ? viewUrl(scene.panels[0]) : undefined} src={viewUrl(scene.clip)} />}
             {!!scene?.panels.length ? <div className="ca-episode-panels">{scene.panels.map((ref) => <img key={ref.filename} src={viewUrl(ref)} alt={detail.title + '剧情画面'} />)}</div> : <div className="ca-film__empty">正在按人物与情节生成本场景画面</div>}
             <details open><summary>本场景旁白和对白</summary>{detail.narration.map((cue, i) => <p key={i}><strong>{cue.role}：</strong>{cue.text}</p>)}</details>
           </>}

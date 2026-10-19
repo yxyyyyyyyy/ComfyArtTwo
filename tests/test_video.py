@@ -137,3 +137,20 @@ async def test_production_pause_only_targets_a_registered_local_episode(bot_clie
     assert (await bot_client.post('/comfyart/video/production/not-a-registered-episode/control', json={'pause': True})).status == 404
     assert (await bot_client.post('/comfyart/video/production/cellar-episode-01/control', json={'pause': 'yes'})).status == 400
     assert json.loads(path.read_text()) == {'pause': True}
+
+
+async def test_production_status_reads_json_without_streaming_a_file(bot_client):
+    root = Path(folder_paths.get_output_directory()) / 'comfyart/cellar-episode-01'
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / 'progress.json'
+    video.write_json(str(path), {'status': 'running', 'voices_done': 35})
+    response = await bot_client.get('/comfyart/video/production/cellar-episode-01')
+    assert response.status == 200
+    initial = await response.json()
+    assert initial['status'] == 'running' and initial['voices_done'] == 35
+    assert initial['preview_render'] is None
+    path.replace(root / 'previous.json')
+    video.write_json(str(path), {'status': 'done'})
+    assert (await (await bot_client.get('/comfyart/video/production/cellar-episode-01')).json())['status'] == 'done'
+    assert (await bot_client.get('/comfyart/video/production/unknown')).status == 404
+    assert (await bot_client.get('/comfyart/video/production/INVALID')).status == 400

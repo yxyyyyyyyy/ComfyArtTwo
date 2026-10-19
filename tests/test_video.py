@@ -126,3 +126,14 @@ async def test_voice_status_counts_completed_cues_without_waiting_for_all_audio(
     state = await (await bot_client.get('/comfyart/video/assemble/' + jid)).json()
     assert (state['progress'], state['total'], state['stage']) == (1, 2, '生成中文旁白')
     assert (await bot_client.get('/comfyart/video/assemble/' + jid, headers={'comfy-user': 'alice'})).status == 404
+
+
+async def test_production_pause_only_targets_a_registered_local_episode(bot_client):
+    response = await bot_client.post('/comfyart/video/production/cellar-episode-01/control', json={'pause': True})
+    assert response.status == 200
+    path = Path(folder_paths.get_output_directory()) / 'comfyart/cellar-episode-01/control.json'
+    assert json.loads(path.read_text()) == {'pause': True}
+    assert (await bot_client.post('/comfyart/video/production/UNKNOWN/control', json={'pause': True})).status == 400
+    assert (await bot_client.post('/comfyart/video/production/not-a-registered-episode/control', json={'pause': True})).status == 404
+    assert (await bot_client.post('/comfyart/video/production/cellar-episode-01/control', json={'pause': 'yes'})).status == 400
+    assert json.loads(path.read_text()) == {'pause': True}

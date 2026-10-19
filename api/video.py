@@ -271,3 +271,27 @@ async def assembly_status(request):
         cues = read_json(str(root / 'story.json'), {}).get('narration', [])
         state.update(progress=len(records), total=len(cues), stage='生成中文旁白' if records else '加载本地语音模型')
     return web.json_response(state)
+
+
+@routes.post('/comfyart/video/production/{pid}/control')
+async def production_control(request):
+    request_user(request)
+    pid = request.match_info['pid']
+    if not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,63}', pid):
+        return error('invalid production id', 400)
+    spec = Path(__file__).resolve().parents[1] / 'productions' / pid / 'episode.json'
+    if not spec.is_file():
+        return error('production not found', 404)
+    body = await json_body(request)
+    if not isinstance(body.get('pause'), bool):
+        return error('pause must be a boolean', 400)
+    root = Path(folder_paths.get_output_directory()) / 'comfyart' / pid
+    write_json(str(root / 'control.json'), {'pause': body['pause']})
+    if not body['pause']:
+        if os.name != 'nt':
+            return error('此制作任务需要在已配置的 Windows 5090 上启动。', 503)
+        proc = await asyncio.create_subprocess_exec('schtasks.exe', '/Run', '/TN', 'ComfyArt-Episode-' + pid, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        out, err = await proc.communicate()
+        if proc.returncode:
+            return error('无法启动本集制作任务：' + (err or out).decode(errors='replace')[-500:], 503)
+    return web.json_response({'paused': body['pause']})

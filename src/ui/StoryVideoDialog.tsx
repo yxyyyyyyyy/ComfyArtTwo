@@ -9,6 +9,7 @@ import { annotated, imageToVideoGraph, t2vGraph, VIDEO_AREAS } from '../workflow
 import { scriptShots, validateShots, type StoryShot } from '../videoStory'
 import { uuid } from '../id'
 import { filmOpenAtom, filmActivityAtom } from './filmState'
+import { EpisodeProduction, type EpisodeSpec } from './EpisodeProduction'
 import { Icons } from './icons'
 
 interface Shot extends StoryShot { promptId?: string; submittedAt?: number }
@@ -30,6 +31,8 @@ export function StoryVideoHost({ editor }: { editor: Editor }) {
   useEffect(() => {
     if (intent && !filmActivityAtom.get().busy) setRequest(intent)
   }, [intent])
+  const production = useValue('episode production', () => (editor.getDocumentSettings().meta.videoStory as { production?: EpisodeSpec } | undefined)?.production, [editor])
+  if (request && production && !request.source) return <EpisodeProduction editor={editor} spec={production} visible={!!intent} onClose={() => filmOpenAtom.set(null)} />
   return request && <StoryVideoDialog key={request.source} editor={editor} source={request.source} firstFrame={request.firstFrame} visible={!!intent} onClose={() => filmOpenAtom.set(null)} />
 }
 

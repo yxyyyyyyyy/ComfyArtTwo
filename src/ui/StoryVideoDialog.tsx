@@ -95,7 +95,7 @@ export function StoryVideoDialog({ editor, source, firstFrame, onClose }: { edit
     finally { setBusy(false) }
   }
   return createPortal(<div className="ca-modal" role="dialog" aria-label="分镜视频制作" onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-    <div className="ca-modal__card ca-story" style={{ width: 'min(940px, calc(100vw - 32px))' }}>
+    <div className="ca-modal__card ca-film" style={{ width: 'min(940px, calc(100vw - 32px))', height: 'min(1100px, calc(100vh - 64px))' }}>
       <div className="ca-side__head"><span>分镜视频制作 · {plan.shots.filter((s) => s.src).length}/{plan.shots.length} 镜头</span><button className="ca-panel__icon" title="关闭" disabled={busy} onClick={onClose}>{Icons.close}</button></div>
       <div className="ca-rename__body">
         <p>长剧本逐镜生成后合成，原稿和进度保存在当前项目。镜头时长由下方设置决定，不会自动变成每集 6 分钟。</p>
@@ -108,7 +108,7 @@ export function StoryVideoDialog({ editor, source, firstFrame, onClose }: { edit
           <label><input type="checkbox" checked={plan.voice} disabled={busy} onChange={(e) => save({ voice: e.target.checked, assemblyId: undefined, result: undefined })} /> 中文旁白 + 字幕（按下方文本）</label>
           <span>原生镜头合计 {plan.shots.reduce((n, s) => n + s.duration, 0)} 秒</span>
         </div>
-        {plan.shots.map((s, i) => <section key={i} className="ca-story__shot">
+        {plan.shots.map((s, i) => <section key={i} className="ca-film__shot">
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}><strong>{s.title}</strong><select aria-label={`镜头 ${i + 1} 时长`} disabled={busy || !!s.src || !!s.promptId} value={s.duration} onChange={(e) => edit(i, { duration: Number(e.target.value) })}>{[5, 10, 15].map((d) => <option key={d} value={d}>{d} 秒</option>)}</select><span>{s.src ? '已完成' : s.promptId ? '待恢复生成结果' : s.error ? '失败 · 可重试' : '待生成'}</span><button className="ca-panel__icon" title={`删除镜头 ${i + 1}`} disabled={busy} onClick={() => save({ shots: plan.shots.filter((_, n) => i !== n), assemblyId: undefined, result: undefined })}>{Icons.close}</button></div>
           <textarea aria-label={`镜头 ${i + 1} 画面`} className="ca-panel__prompt" style={{ minHeight: 90 }} disabled={busy || !!s.src || !!s.promptId} value={s.prompt} onChange={(e) => edit(i, { prompt: e.target.value })} />
           <textarea aria-label={`镜头 ${i + 1} 旁白`} className="ca-panel__prompt" style={{ minHeight: 50 }} placeholder="准确的中文旁白；留空时只保留环境声" disabled={busy} value={s.narration} onChange={(e) => edit(i, { narration: e.target.value })} />
@@ -118,7 +118,7 @@ export function StoryVideoDialog({ editor, source, firstFrame, onClose }: { edit
         {status && <div role="status">{status}</div>}{error && <div role="alert" style={{ color: '#ba3030', whiteSpace: 'pre-wrap' }}>{error}</div>}
         {plan.result && <video controls src={plan.result} style={{ maxHeight: 420, maxWidth: '100%' }} />}
       </div>
-        <div className="ca-panel__foot ca-story__foot">
+        <div className="ca-panel__foot ca-film__foot">
           {busy ? <button className="ca-panel__secondary" onClick={() => { stop.current = true; setStatus('当前镜头完成后暂停；配音或合成阶段会完成当前合成。') }}>当前镜头后暂停</button> : <>
             <button className="ca-panel__secondary" onClick={() => save({ shots: [...plan.shots, { title: `镜头 ${plan.shots.length + 1}`, prompt: '', narration: '', duration: 5 }] })}>添加镜头</button>
             <button className="ca-panel__primary" disabled={!plan.shots.length} onClick={() => void run()}>生成 / 继续未完成镜头</button>

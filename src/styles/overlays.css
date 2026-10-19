@@ -292,10 +292,10 @@
 .ca-refbtn { white-space: nowrap; flex: none; }
 .ca-refbtn[data-on] { background: var(--ca-active); }
 
-.ca-story__shot { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--ca-border); border-radius: 12px; padding: 14px; background: var(--ca-field); }
-.ca-story .ca-panel__prompt { display: block; width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--ca-border); border-radius: 8px; background: var(--ca-float); resize: vertical; font: inherit; line-height: 1.6; }
-.ca-story .ca-panel__prompt:disabled { color: var(--ca-text); opacity: .75; }
-.ca-story video { align-self: flex-start; border-radius: 8px; background: #111; }
-.ca-story select { max-width: 100%; padding: 5px 8px; border: 1px solid var(--ca-border); border-radius: 6px; background: var(--ca-float); color: var(--ca-text); font: inherit; }
-.ca-story__foot { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 8px; border-top: 1px solid var(--ca-border); padding: 12px 20px; }
-.ca-story__foot button, .ca-story .ca-panel__secondary { min-height: 34px; padding: 6px 12px; border-radius: 8px; font: inherit; cursor: pointer; }
+.ca-film__shot { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--ca-border); border-radius: 12px; padding: 14px; background: var(--ca-field); }
+.ca-film .ca-panel__prompt { display: block; width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--ca-border); border-radius: 8px; background: var(--ca-float); resize: vertical; font: inherit; line-height: 1.6; }
+.ca-film .ca-panel__prompt:disabled { color: var(--ca-text); opacity: .75; }
+.ca-film video { align-self: flex-start; border-radius: 8px; background: #111; }
+.ca-film select { max-width: 100%; padding: 5px 8px; border: 1px solid var(--ca-border); border-radius: 6px; background: var(--ca-float); color: var(--ca-text); font: inherit; }
+.ca-film__foot { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 8px; border-top: 1px solid var(--ca-border); padding: 12px 20px; }
+.ca-film__foot button, .ca-film .ca-panel__secondary { min-height: 34px; padding: 6px 12px; border-radius: 8px; font: inherit; cursor: pointer; }

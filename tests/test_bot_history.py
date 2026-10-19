@@ -44,4 +44,13 @@ def test_unverified_assistant_claims_are_not_replayed_as_completed_work(monkeypa
         {'type': 'notice', 'text': 'This turn made no tool calls, so nothing it describes was actually done'}]}]
     monkeypatch.setattr(chat_store, 'list_messages', lambda _: rows)
     text = _replay_history('chat', 'a2')[0]['text']
-    assert 'fake.png' not in text and 'not changed' in text
+    assert 'fake.png' not in text and 'not a verified' in text
+
+
+def test_rejected_visual_description_is_not_replayed_as_a_brief(monkeypatch):
+    from ComfyArt.api import chat_store
+    rows = [{'id': 'a1', 'role': 'assistant', 'blocks': [
+        {'type': 'text', 'text': 'A blue ellipse is the finished anti-corruption poster.'},
+        {'type': 'notice', 'kind': 'design_acceptance_failed', 'text': '验收未通过'}]}]
+    monkeypatch.setattr(chat_store, 'list_messages', lambda _: rows)
+    assert 'blue ellipse' not in _replay_history('chat', 'a2')[0]['text']

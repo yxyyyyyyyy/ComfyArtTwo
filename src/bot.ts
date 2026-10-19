@@ -167,7 +167,7 @@ async function ensureChat(): Promise<BotChat> {
   return chat
 }
 
-export interface SendInput { text: string; refs: { id: string; src: string; name: string; kind: 'image' | 'video' | 'audio'; transcript?: string }[]; docs: { src: string; name: string }[]; kits: { name: string; description: string; images: string[] }[]; skill?: string; memory?: string; context?: string }
+export interface SendInput { text: string; refs: { id: string; src: string; name: string; kind: 'image' | 'video' | 'audio'; transcript?: string }[]; docs: { src: string; name: string }[]; kits: { name: string; description: string; images: string[] }[]; skill?: string; skill_id?: string; memory?: string; context?: string }
 
 export async function sendMessage(input: SendInput) {
   const chat = await ensureChat()

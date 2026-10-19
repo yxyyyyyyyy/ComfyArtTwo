@@ -105,3 +105,9 @@ def test_compose_puts_memory_first_and_skill_instruction_before_the_text():
     text = bot_send.compose_provider_text("make it", skill_name="Poster", memory="MEM", lines=["[ref]"])
     assert text.startswith("MEM\n\nUse the ComfyArt skill 'Poster'")
     assert text.endswith("make it\n\n[ref]")
+
+
+def test_skill_contract_uses_id_independent_of_display_language():
+    text = bot_send.compose_provider_text('党政廉洁', skill_name='海报设计', skill_id='poster')
+    assert text.startswith('[Selected ComfyArt skill id: poster]')
+    assert text.endswith('党政廉洁')

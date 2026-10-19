@@ -8,6 +8,7 @@ import sys
 import time
 from pathlib import Path
 from typing import Callable, Optional
+from urllib.parse import urlsplit
 
 import aiohttp
 
@@ -49,6 +50,19 @@ _DESIGN_WRITES = {
 }
 
 
+def _json_object(raw: str) -> dict:
+    try:
+        value = json.loads(raw)
+        return value if isinstance(value, dict) else {}
+    except ValueError:
+        return {}
+
+
+def _memory_error(error: Exception) -> bool:
+    return any(s in str(error).lower() for s in (
+        'memory layout cannot be allocated', 'failed to allocate buffer', 'out of memory'))
+
+
 def _user_content(text: str, attachments: Optional[list[dict]]):
     images = [
         {"type": "image_url",
@@ -81,6 +95,54 @@ class LocalLlmProvider(AgentProvider):
         if key:
             headers["Authorization"] = f"Bearer {key}"
         return headers
+
+    def _managed_ollama(self) -> str:
+        url = urlsplit(self._base_url())
+        if url.hostname in ('127.0.0.1', 'localhost') and url.port == 11435 and url.path == '/v1':
+            return f'{url.scheme}://{url.netloc}'
+        return ''
+
+    async def _release_ollama(self, session, model: str) -> None:
+        base = self._managed_ollama()
+        if base:
+            await self._request_json(session, 'POST', base + '/api/generate',
+                headers=self._api_headers(), json_body={'model': model, 'keep_alive': 0, 'stream': False}, timeout=30)
+
+    async def _recover_memory(self, session, model: str, endpoint: str) -> None:
+        if not self._managed_ollama():
+            return
+        await self._release_ollama(session, model)
+        url = urlsplit(endpoint)
+        if url.hostname not in ('localhost', '127.0.0.1'):
+            return
+        base = f'{url.scheme}://{url.netloc}'
+        queue = await self._request_json(session, 'GET', base + '/queue', headers=self._mcp_headers(), timeout=10)
+        if queue.get('queue_running') or queue.get('queue_pending'):
+            return
+        await self._request_json(session, 'POST', base + '/free', headers=self._mcp_headers(),
+            json_body={'unload_models': True, 'free_memory': True}, timeout=15)
+
+    async def _complete(self, session, model: str, messages: list, tools: list,
+                        endpoint: str, emit: EmitFn) -> dict:
+        body = {'model': model, 'messages': messages,
+                **({'tools': tools, 'tool_choice': 'auto'} if tools else {}),
+                'temperature': 0.2, 'max_tokens': 2048}
+        for attempt in range(2):
+            try:
+                return await self._request_json(session, 'POST', self._base_url() + '/chat/completions',
+                    headers=self._api_headers(), json_body=body, timeout=_LLM_TIMEOUT_S)
+            except _NET_ERRORS as error:
+                if not _memory_error(error):
+                    raise
+                if attempt:
+                    raise RuntimeError('本地 Agent 的内存分配失败，自动恢复后仍未成功。本轮未生成完成结果，请等待其他生成结束后重试。') from error
+                await emit(BotEvent(t='thinking', text='本地 Agent 内存分配失败，正在释放本服务的空闲模型资源后重试一次。'))
+                try:
+                    await self._recover_memory(session, model, endpoint)
+                except _NET_ERRORS as recovery_error:
+                    _log.warning('Agent memory recovery failed: %s', recovery_error)
+                await asyncio.sleep(1)
+        raise AssertionError('unreachable')
 
     @staticmethod
     def _mcp_headers() -> dict:
@@ -339,20 +401,20 @@ class LocalLlmProvider(AgentProvider):
                         for m in turn.history or []))
                 performed_write = False
                 execution_retries = 0
+                poster_task = '[Selected ComfyArt skill id: poster]' in turn.user_text
+                if not poster_task and is_continuation(turn.intent_text if turn.intent_text is not None else turn.user_text):
+                    for prior in reversed(turn.history or []):
+                        prior_text = str(prior.get('text') or '')
+                        if '[Previously read skill:' in prior_text or '[Selected ComfyArt skill id:' in prior_text:
+                            poster_task = 'Design posters:' in prior_text or '[Selected ComfyArt skill id: poster]' in prior_text
+                            break
+                poster_pending: dict[str, bool] = {}
+                poster_ready: set[str] = set()
+                poster_viewed = False
                 for _ in range(_MAX_ITERATIONS):
                     if handle.stop_requested:
                         return TurnResult(aborted=True, usage=usage)
-                    data = await self._request_json(
-                        session, "POST", f"{base}/chat/completions",
-                        headers=self._api_headers(),
-                        json_body={
-                            "model": model,
-                            "messages": messages,
-                            **({"tools": tools, "tool_choice": "auto"} if tools else {}),
-                            "temperature": 0.2,
-                        },
-                        timeout=_LLM_TIMEOUT_S,
-                    )
+                    data = await self._complete(session, model, messages, tools, turn.mcp_endpoint, emit)
                     usage = merge_usage(usage, data.get("usage"))
                     message = (data.get("choices") or [{}])[0].get("message") or {}
                     content = self._extract_text(message.get("content") or "")
@@ -364,13 +426,14 @@ class LocalLlmProvider(AgentProvider):
                     if reasoning.strip():
                         await emit(BotEvent(t="thinking", text=reasoning.strip()))
                     if not tool_calls:
-                        if tools and skill_task and not performed_write:
+                        unfinished_poster = poster_task and not poster_viewed
+                        if tools and skill_task and (not performed_write or unfinished_poster):
                             if execution_retries >= 2:
-                                return TurnResult(error='The local model did not execute the requested design tools. No design result was verified; please retry with a more capable Agent.', usage=usage)
+                                return TurnResult(error=('海报未完成：尚未生成、等待并查看实际的 3:4 海报画面。方框、圆点和文字承诺不计为完成。' if unfinished_poster else 'The local model did not execute the requested design tools. No design result was verified; please retry with a more capable Agent.'), usage=usage)
                             execution_retries += 1
                             messages.extend([
                                 {'role': 'assistant', 'content': content or 'No tools called.'},
-                                {'role': 'user', 'content': 'The requested design is not complete: you have not created any deliverable with tools. Execute the original company/subject brief and selected skill now. Use detailed visual prompts based on that brief, not a confirmation word or a copied generation log. Read the skill if needed, call the creation tools, then wait for and inspect the results. Do not ask for the same permission again.'},
+                                {'role': 'user', 'content': ('The poster is not complete. Empty frames, rectangles and a generic circle are not the requested poster artwork. Call generate_image with ratio="3:4" and a detailed English prompt faithful to the user topic; include the exact Chinese headline in quotes, a meaningful hero illustration, coordinated palette and typographic hierarchy. Then call wait_generation for its returned ids. When done, call view_canvas with the returned image shape ids to inspect the actual poster. Do not claim a ratio or a visible headline that you have not checked.' if unfinished_poster else 'The requested design is not complete: you have not created any deliverable with tools. Execute the original company/subject brief and selected skill now. Use detailed visual prompts based on that brief, not a confirmation word or a copied generation log. Read the skill if needed, call the creation tools, then wait for and inspect the results. Do not ask for the same permission again.')},
                             ])
                             await emit(BotEvent(t='thinking', text='Checking execution: the selected design skill has no created deliverable yet; retrying tool execution.'))
                             continue
@@ -405,6 +468,8 @@ class LocalLlmProvider(AgentProvider):
                         tool_failed = False
                         images: list[str] = []
                         try:
+                            if name in ('generate_image', 'generate_video', 'edit_image', 'animate_image'):
+                                await self._release_ollama(session, model)
                             if name == "wait_generation":
                                 result_text = await self._wait_stage_done(
                                     session, turn.mcp_endpoint, args, model,
@@ -418,6 +483,19 @@ class LocalLlmProvider(AgentProvider):
                         tool_failed = tool_failed or result_text.startswith('[tool error]')
                         if name in _DESIGN_WRITES and not tool_failed:
                             performed_write = True
+                        if not tool_failed:
+                            result = _json_object(result_text)
+                            if name == 'skill' and args.get('action') == 'read' and str(result.get('instructions') or '').startswith('Design posters:'):
+                                poster_task = True
+                            if poster_task and name == 'generate_image':
+                                for id in result.get('ids') or []:
+                                    poster_pending[id] = args.get('ratio') == '3:4'
+                            if poster_task and name == 'wait_generation':
+                                for item in result.get('results') or []:
+                                    if item.get('status') == 'done' and item.get('urls') and poster_pending.get(item.get('id')):
+                                        poster_ready.update(item.get('shapes') or [])
+                            if poster_task and name == 'view_canvas' and images and poster_ready.intersection(args.get('ids') or []):
+                                poster_viewed = True
                         if len(result_text) > TOOL_RESULT_CAP:
                             result_text = (
                                 result_text[:TOOL_RESULT_CAP]

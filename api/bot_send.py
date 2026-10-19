@@ -105,7 +105,7 @@ async def prepare_attachments(refs: list[dict], kits: list[dict], docs: list[dic
     return attachments, lines
 
 
-def compose_provider_text(text: str, *, skill_name: str = "", memory: str = "",
+def compose_provider_text(text: str, *, skill_name: str = "", skill_id: str = "", memory: str = "",
                           lines: list[str] = ()) -> str:
     provider_text = text or "Look at the attached images and tell me what you see."
     if skill_name:
@@ -114,6 +114,8 @@ def compose_provider_text(text: str, *, skill_name: str = "", memory: str = "",
             f"the comfyart MCP tool skill with action='read' and "
             f"name={skill_name!r}, then follow those instructions.\n\n"
             + provider_text)
+    if skill_name and skill_id:
+        provider_text = f"[Selected ComfyArt skill id: {skill_id}]\n\n" + provider_text
     if lines:
         provider_text += "\n\n" + "\n".join(lines)
     if memory:

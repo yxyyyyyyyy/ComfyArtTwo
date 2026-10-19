@@ -78,6 +78,8 @@ def blocks_text(blocks: list[dict]) -> str:
             parts.append(f"[notice: {b.get('text')}]")
         elif kind == "skill" and b.get("name"):
             parts.append(f"[Selected ComfyArt skill: {b['name']!r}. Read it with the skill tool and follow it for this task.]")
+            if b.get('id'):
+                parts.append(f"[Selected ComfyArt skill id: {b['id']}]")
         elif kind == "tool_result" and b.get("name") == "skill" and b.get("status") != "error":
             parts.append(f"[Previously read skill: {str(b.get('text') or '')[:4000]}]")
         elif kind == "task":
@@ -120,10 +122,10 @@ def _replay_history(chat_id: str, current_message_id: str) -> list[dict]:
         if row["id"] in skip or row["role"] not in ("user", "assistant"):
             continue
         if row['role'] == 'assistant' and any(
-            b.get('type') == 'notice' and 'This turn made no tool calls' in str(b.get('text') or '')
+            b.get('type') == 'notice' and ('This turn made no tool calls' in str(b.get('text') or '') or b.get('kind') == 'design_acceptance_failed')
             for b in row['blocks']
         ):
-            history.append({'role': 'assistant', 'text': '[The previous assistant response failed to execute any tools. The canvas was not changed by that response.]'})
+            history.append({'role': 'assistant', 'text': '[The previous assistant response was not a verified completed design. Do not reuse its design description as the brief; follow the original user request.]'})
             continue
         text = blocks_text(row["blocks"])
         if text:

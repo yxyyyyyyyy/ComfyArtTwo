@@ -26,7 +26,7 @@
     "disable_async_offload": true,
     "disable_cuda_malloc": true,
     "node_cache": "none",
-    "ollama_keep_alive": 0,
+    "ollama_keep_alive": "30s",
     "ollama_context_length": 16384,
     "torch": "2.11.0+cu130",
     "torchvision": "0.26.0+cu130",

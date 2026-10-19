@@ -150,6 +150,7 @@ async def bot_send(request: web.Request) -> web.Response:
     if (send_core.visual_refs(refs) or any(k["images"] for k in kits)) and not can_see:
         return error(f"{provider.label} cannot take images; pick another agent or remove the references", 400)
     skill_name = str(body.get("skill") or "").strip()
+    skill_id = str(body.get("skill_id") or "").strip()
     try:
         attachments, lines = await send_core.prepare_attachments(refs, kits, docs, page_images=can_see)
     except ValueError as e:
@@ -158,12 +159,12 @@ async def bot_send(request: web.Request) -> web.Response:
     display_blocks += [{"type": "file", "url": d["src"], "name": d["name"]} for d in docs]
     display_blocks += [{"type": "kit", "name": k["name"]} for k in kits]
     if skill_name:
-        display_blocks.append({"type": "skill", "name": skill_name})
+        display_blocks.append({"type": "skill", "name": skill_name, **({"id": skill_id} if skill_id else {})})
     if text:
         display_blocks.append({"type": "text", "text": text})
     context = str(body.get("context") or "").strip()
     provider_text = send_core.compose_provider_text(
-        text, skill_name=skill_name, memory=str(body.get("memory") or ""), lines=[*lines, *([context] if context else [])])
+        text, skill_name=skill_name, skill_id=skill_id, memory=str(body.get("memory") or ""), lines=[*lines, *([context] if context else [])])
     user_msg, assistant_msg = send_core.queue_or_begin(
         chat, text=text, provider_text=provider_text,
         attachments=attachments, display_blocks=display_blocks)

@@ -9,6 +9,7 @@ import { Icons } from './icons'
 import { SettingsMenu } from './SettingsMenu'
 import { sideAtom } from './SidePanel'
 import { t } from '../i18n'
+import { FilmButton } from './FilmButton'
 import { isEnter } from './keys'
 
 function exportTargets(editor: Editor): TLShapeId[] {
@@ -35,6 +36,7 @@ export function TopBar({ editor, left }: { editor: Editor; left?: React.ReactNod
   return (
     <div className="ca-top" onPointerDown={(e) => e.stopPropagation()}>
       {left}
+      <FilmButton editor={editor} />
       <button type="button" className="ca-bar__btn ca-bar__btn--icon" title={t('common.reference')} data-on={side === 'references' || undefined} onClick={() => sideAtom.set(side === 'references' ? null : 'references')}>
         <span className="ca-icon">{Icons.refs}</span>
       </button>

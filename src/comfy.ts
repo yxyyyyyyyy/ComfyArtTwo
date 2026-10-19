@@ -112,7 +112,7 @@ function withModelPaths(prompt: PromptGraph): PromptGraph {
   }]))
 }
 
-export async function queuePrompt(prompt: PromptGraph): Promise<string> {
+export async function queuePrompt(prompt: PromptGraph, promptId?: string): Promise<string> {
   if (Object.values(prompt).some((node) => node.class_type.startsWith('MiniMaxH3'))) {
     const prep = await api('/comfyart/video/prepare', { method: 'POST' })
     if (!prep.ok) throw new Error((await prep.json()).error ?? `video preparation failed: ${prep.status}`)
@@ -120,7 +120,7 @@ export async function queuePrompt(prompt: PromptGraph): Promise<string> {
   const res = await api('/prompt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt: withModelPaths(prompt), client_id: CLIENT_ID }),
+    body: JSON.stringify({ prompt: withModelPaths(prompt), client_id: CLIENT_ID, ...(promptId ? { prompt_id: promptId } : {}) }),
   })
   const body = await res.json()
   if (!res.ok) throw new Error(body?.error?.message ?? `queue failed: ${res.status}`)

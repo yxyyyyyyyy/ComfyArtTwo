@@ -16,6 +16,7 @@ import { Composer, FILE_ACCEPT } from './Composer'
 import { Icons } from './icons'
 import { NoticeCenter } from './NoticeCenter'
 import { Popover } from './Popover'
+import { FilmButton } from './FilmButton'
 import { ProjectHeader } from './ProjectHeader'
 import { detailsAtom } from './TaskDetails'
 import { t } from '../i18n'
@@ -150,6 +151,7 @@ export function AgentPanel({ editor, projectId, max, onMax, onCollapse, onError 
           <span className="ca-icon">{dock === 'left' ? Icons.panel : Icons.panelRight}</span>
         </button>
       </ProjectHeader>
+      <FilmButton editor={editor} className="ca-film-chat-entry" />
       <div ref={list} className="ca-chat" onScroll={onScroll}>
         {enabled === false && (
           <div className="ca-chat__empty">

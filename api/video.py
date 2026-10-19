@@ -72,6 +72,49 @@ async def prepare_video(request):
         return error('视频资源准备失败：' + str(e), 503)
 
 
+
+def render_status(prompt_id, queue, registry):
+    history = queue.get_history(prompt_id=prompt_id).get(prompt_id)
+    if history:
+        failure = next((m for m in history.get('status', {}).get('messages', []) if m[0] in ('execution_error', 'execution_interrupted')), None)
+        if failure:
+            message = failure[1].get('exception_message') or '此镜头生成已中止；已完成镜头保留。'
+            if 'Fault failed: 2' in message:
+                message = '模型权重调入显存失败，此镜头未完成。已完成镜头保留；可以重试此镜头。'
+            return {'status': 'error', 'error': message}
+        output = history.get('outputs', {}).get('92', {})
+        refs = output.get('images') or output.get('videos') or output.get('gifs')
+        if refs:
+            return {'status': 'done', 'outputs': refs}
+        return {'status': 'error', 'error': '任务结束但没有输出视频，请重试此镜头。'}
+    running, pending = queue.get_current_queue_volatile()
+    for position, item in enumerate(sorted(pending), 1):
+        if item[1] == prompt_id:
+            return {'status': 'queued', 'stage': '排队等待', 'position': position}
+    item = next((item for item in running if item[1] == prompt_id), None)
+    if item is None:
+        return {'status': 'missing', 'error': '服务中没有此任务记录，可能因服务重启而中断。已完成镜头保留，可从此镜头重试。'}
+    result = {'status': 'running', 'stage': '准备模型', 'started': item[3].get('create_time')}
+    if registry.prompt_id == prompt_id:
+        for node_id, state in list(registry.nodes.items()):
+            if state['state'].value != 'running':
+                continue
+            kind = registry.dynprompt.get_node(node_id)['class_type']
+            stage = ('声音解码' if kind == 'VAEDecodeAudio' else '视频解码' if 'VAEDecode' in kind else '保存视频' if 'SaveVideo' in kind else
+                     '文本编码 / 加载文本模型' if 'CLIP' in kind or kind in ('MiniMaxH3ImageToVideo', 'MiniMaxH3ReferenceToVideo') else '加载视频模型 / 采样' if 'Sampler' in kind else '准备模型与画面')
+            result.update(node=node_id, node_type=kind, stage=stage, value=state['value'], max=state['max'])
+            if 'Sampler' in kind and state['value'] > 0:
+                result['stage'] = '视频采样'
+    return result
+
+
+@routes.get('/comfyart/video/render/{pid}')
+async def render_progress(request):
+    request_user(request)
+    from comfy_execution.progress import get_progress_state
+    return web.json_response(render_status(request.match_info['pid'], PromptServer.instance.prompt_queue, get_progress_state()))
+
+
 def validate_clips(body):
     clips = body.get('clips')
     if not isinstance(clips, list) or not 1 <= len(clips) <= 60:
@@ -145,7 +188,7 @@ async def assemble(user, jid, clips, voice):
                 (root / 'story.json').write_text(json.dumps({'narration': cues}, ensure_ascii=False), encoding='utf-8')
                 update(status='voicing', progress=0)
                 await command([python, script, '--story', root / 'story.json', '--output', root, '--model', speech / 'models/Qwen3-TTS-12Hz-1.7B-CustomVoice'], root, log)
-            update(status='assembling', progress=0)
+            update(status='assembling', progress=0, stage='逐镜混音与时长对齐')
             with av.open(clips[0]['path']) as container:
                 target_w, target_h = container.streams.video[0].width, container.streams.video[0].height
             timeline = []; cursor = 0
@@ -170,9 +213,11 @@ async def assemble(user, jid, clips, voice):
                     timeline.append(f'{len(timeline)+1}\n{stamp(cursor)} --> {stamp(cursor+length)}\n{text}\n')
                 cursor += length
                 update(progress=i+1)
+            update(stage='拼接全部镜头')
             (root / 'concat.txt').write_text(''.join(f"file 'clip-{i:03}.mp4'\n" for i in range(len(clips))), encoding='utf-8')
             await command([ffmpeg, '-y', '-f', 'concat', '-safe', '1', '-i', 'concat.txt', '-c', 'copy', '-movflags', '+faststart', 'joined.mp4'], root, log)
             if timeline:
+                update(stage='压制中文字幕 / 导出成片')
                 (root / 'subtitles.srt').write_text('\n'.join(timeline), encoding='utf-8')
                 # Relative generated filename avoids drive-letter escaping in libass.
                 await command([ffmpeg, '-y', '-i', 'joined.mp4', '-vf', subtitle_filter('subtitles.srt'), '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-c:a', 'copy', '-movflags', '+faststart', 'final.mp4'], root, log)
@@ -191,8 +236,18 @@ async def start_assembly(request):
         clips = validate_clips(body)
     except (ValueError, OSError) as exc:
         return error(str(exc), 400)
-    jid = uuid.uuid4().hex
-    write_json(str(job_file(user, jid)), {'id': jid, 'status': 'queued', 'total': len(clips), 'progress': 0})
+    jid = body.get('id') or uuid.uuid4().hex
+    try:
+        path = job_file(user, jid)
+    except (ValueError, TypeError) as exc:
+        return error(str(exc), 400)
+    fingerprint = hashlib.sha256(json.dumps([clips, body.get('voice', True) is True], sort_keys=True).encode()).hexdigest()
+    existing = read_json(str(path), None)
+    if existing:
+        if existing.get('fingerprint') != fingerprint:
+            return error('此合成编号对应其他内容，请重新提交。', 409)
+        return web.json_response({'id': jid}, status=202)
+    write_json(str(path), {'id': jid, 'status': 'queued', 'total': len(clips), 'progress': 0, 'fingerprint': fingerprint})
     task = asyncio.create_task(assemble(user, jid, clips, body.get('voice', True) is True))
     _TASKS[jid] = task; task.add_done_callback(lambda _: _TASKS.pop(jid, None))
     return web.json_response({'id': jid}, status=202)
@@ -210,4 +265,9 @@ async def assembly_status(request):
     if state.get('status') not in ('done', 'error') and request.match_info['jid'] not in _TASKS:
         state.update(status='error', error='服务已重启，合成中断。已生成镜头保留，可重新合成。')
         write_json(str(path), state)
+    if state.get('status') == 'voicing':
+        root = Path(folder_paths.get_output_directory()) / 'comfyart' / 'stories' / state['id']
+        records = read_json(str(root / 'voice-manifest.json'), [])
+        cues = read_json(str(root / 'story.json'), {}).get('narration', [])
+        state.update(progress=len(records), total=len(cues), stage='生成中文旁白' if records else '加载本地语音模型')
     return web.json_response(state)

@@ -77,6 +77,7 @@ import { StylePanel } from './ui/StylePanel'
 import { SidePanel } from './ui/SidePanel'
 import { ShapeToolbar, TextToolbar } from './ui/StyleToolbars'
 import { TopBar } from './ui/TopBar'
+import { StoryVideoHost } from './ui/StoryVideoDialog'
 import { VideoEditor } from './ui/VideoEditor'
 import { VideoToolbar } from './ui/VideoToolbar'
 import { Zoom } from './ui/Zoom'
@@ -280,6 +281,7 @@ export function App({ id }: { id: string }) {
           {editor && <SidePanel editor={editor} onError={setError} />}
         </div>
       </div>
+      {editor && <StoryVideoHost editor={editor} />}
       <Shortcuts />
       <KitEditor onError={setError} />
       <Confirm />

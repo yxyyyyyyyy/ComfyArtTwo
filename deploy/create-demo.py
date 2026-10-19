@@ -35,14 +35,14 @@ def text(**args):
 
 shape(kind='rect', x=0, y=0, width=1200, height=800, fill='#F4F2EC', stroke='#F4F2EC')
 shape(kind='rect', x=64, y=64, width=44, height=5, fill='#547B55', stroke='#547B55')
-text(text='COMFYART / LOCAL DESIGN STUDIO', x=64, y=90, width=650, font_size=20, color='#547B55')
+text(text='MUJIAN / AI CREATIVE STUDIO', x=64, y=90, width=650, font_size=20, color='#547B55')
 text(text='让灵感\n在本地生长。', x=58, y=195, width=560, font_size=68, color='#17261D')
-text(text='无限画布 · 本地模型 · 你的 5090', x=64, y=400, width=520, font_size=23, color='#647165')
+text(text='Agent · 图片 · 视频 · 自由画布', x=64, y=400, width=520, font_size=23, color='#647165')
 text(text='从一个想法，到一幅作品。\n所有创作，留在你自己的电脑上。', x=64, y=460, width=500, font_size=21, color='#647165')
 shape(kind='rect', x=650, y=160, width=486, height=486, fill='#E1E6DA', stroke='#E1E6DA')
 text(text='本地生成图像', x=740, y=380, width=310, font_size=27, color='#547B55', align='center')
 shape(kind='rect', x=64, y=680, width=1072, height=1, fill='#C9CEC1', stroke='#C9CEC1')
-text(text='CREATED LOCALLY.  POWERED BY RTX 5090.', x=64, y=710, width=650, font_size=17, color='#547B55')
+text(text='CREATED WITH AI.  DESIGNED BY YOU.', x=64, y=710, width=650, font_size=17, color='#547B55')
 text(text='01 / YOUR CANVAS', x=910, y=710, width=226, font_size=17, color='#547B55', align='right')
 call('focus', {'ids': [fid]})
 artifacts = Path(__file__).resolve().parents[1] / 'artifacts'

@@ -4,6 +4,10 @@ import type { StudioView } from './story'
 
 export const DRAFT_PREFIX = 'mujian.draft.'
 
+export function newCreativeProject(mode: 'agent' | 'image' | 'video' = 'agent') {
+  newProject({ studio: mode, mode })
+}
+
 export function openStudioProject(id: string, view: StudioView = 'overview') {
   if (view === 'overview') openProject(id)
   else location.assign(projectUrl(id, { studio: view }))

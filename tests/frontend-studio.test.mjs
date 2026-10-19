@@ -7,7 +7,7 @@ import { SourceTextModule } from 'node:vm'
 const module = new SourceTextModule(stripTypeScriptTypes(await readFile(new URL('../src/studio/story.ts', import.meta.url), 'utf8')))
 await module.link(() => { throw new Error('Studio draft handling must work without the editor or generation service') })
 await module.evaluate()
-const { reviseDraft, rolesOf, scenesOf, studioView, formatDuration } = module.namespace
+const { reviseDraft, rolesOf, scenesOf, studioView, formatDuration, isCanvasView, viewMode } = module.namespace
 
 test('revising a screenplay preserves finished film, production IDs, original script and archived work', () => {
   const meta = {
@@ -51,4 +51,21 @@ test('unknown routes and unverified video duration have explicit fallbacks', () 
   assert.equal(formatDuration(undefined), '时长待确认')
   assert.equal(formatDuration(Infinity), '时长待确认')
   assert.equal(formatDuration(360), '06:00')
+})
+
+test('Agent, image and video have dedicated pages with explicit backend modes', () => {
+  for (const mode of ['agent', 'image', 'video']) {
+    assert.equal(studioView(mode), mode)
+    assert.equal(viewMode(mode), mode)
+    assert.equal(isCanvasView(mode), false)
+  }
+  assert.equal(viewMode('canvas'), null)
+  assert.equal(isCanvasView('canvas'), true)
+})
+
+test('story production remains a separate optional workspace', () => {
+  for (const view of ['overview', 'script', 'cast', 'production', 'film']) {
+    assert.equal(isCanvasView(view), false)
+    assert.equal(viewMode(view), null)
+  }
 })

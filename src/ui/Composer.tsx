@@ -90,10 +90,11 @@ function DirectPills({ editor, video }: { editor: Editor; video: boolean }) {
   )
 }
 
-export function Composer({ editor, busy, onError }: { editor: Editor; busy: boolean; onError: (msg: string) => void }) {
+export function Composer({ editor, busy, onError, fixedMode }: { editor: Editor; busy: boolean; onError: (msg: string) => void; fixedMode?: AgentMode }) {
   const started = useValue('chat started', () => messagesAtom.get().length > 0, [])
   const draft = useValue(draftAtom)
-  const mode = useValue(agentModeAtom)
+  const selectedMode = useValue(agentModeAtom)
+  const mode = fixedMode ?? selectedMode
   const enabled = useValue(botEnabledAtom)
   const agentOff = mode === 'agent' && enabled === false
   const skill = useValue(skillAtom)
@@ -312,7 +313,7 @@ export function Composer({ editor, busy, onError }: { editor: Editor; busy: bool
             />
           )}
         </Popover>
-        <Popover
+        {!fixedMode && <Popover
           open={menu === 'mode'}
           onOpenChange={(o) => setMenu(o ? 'mode' : null)}
           side="top"
@@ -330,7 +331,7 @@ export function Composer({ editor, busy, onError }: { editor: Editor; busy: bool
               </button>
             ))}
           </div>
-        </Popover>
+        </Popover>}
         {mode !== 'agent' && <DirectPills editor={editor} video={mode === 'video'} />}
         {refs.length > 1 && <EachButton compact on={each.on} onChange={each.setOn} />}
         {mode === 'agent' && !agentOff && <AgentPicker onError={onError} />}

@@ -32,7 +32,14 @@ export async function takeHandoff(editor: Editor, onError: ErrorSink) {
   const refs = url.searchParams.getAll('ref')
   const skillId = url.searchParams.get('skill')
   const tool = url.searchParams.get('tool')
-  if (!text && !refs.length && !skillId) return
+  if (!text && !refs.length && !skillId) {
+    if (url.searchParams.has('mode')) {
+      agentModeAtom.set(mode)
+      url.searchParams.delete('mode')
+      history.replaceState(null, '', url)
+    }
+    return
+  }
   for (const k of KEYS) url.searchParams.delete(k)
   history.replaceState(null, '', url)
   if (tool === 'elements') {

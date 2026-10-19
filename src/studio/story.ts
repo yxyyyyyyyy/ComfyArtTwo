@@ -1,5 +1,11 @@
-export type StudioView = 'overview' | 'script' | 'cast' | 'production' | 'film' | 'canvas'
-export const STUDIO_VIEWS: StudioView[] = ['overview', 'script', 'cast', 'production', 'film', 'canvas']
+export type StudioView = 'agent' | 'image' | 'video' | 'overview' | 'script' | 'cast' | 'production' | 'film' | 'canvas'
+export const STUDIO_VIEWS: StudioView[] = ['agent', 'image', 'video', 'overview', 'script', 'cast', 'production', 'film', 'canvas']
+
+export function viewMode(view: StudioView): 'agent' | 'image' | 'video' | null {
+  return view === 'agent' || view === 'image' || view === 'video' ? view : null
+}
+
+export const isCanvasView = (view: StudioView) => view === 'canvas'
 
 export interface StudioDraft { source?: string; direction?: string; castNotes?: Record<string, string> }
 export interface StudioCue { role: string; text: string; speaker?: string; tone?: string }

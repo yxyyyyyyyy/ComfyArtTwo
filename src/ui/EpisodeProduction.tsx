@@ -88,7 +88,7 @@ export function EpisodeProduction({ editor, spec, visible, onClose }: { editor: 
         <progress aria-label="当前制作阶段进度" value={done} max={total} />
         <div className="ca-film__live" role="status"><strong>{disconnected ? '连接暂时中断 · 正在重连' : job?.status === 'done' ? '第一集已完成 · 可直接播放或下载' : job?.status === 'paused' ? '制作已暂停 · 已完成素材保留' : (job?.phase === 'render' ? job.render?.stage : '') || job?.stage || '正在连接制作任务'}</strong><span>{job?.stage === '视频采样' && job.maximum ? `${job.value}/${job.maximum} 步` : ''}</span></div>
         {!disconnected && job?.stage === '视频采样' && !!job.maximum && <progress aria-label="关键动画采样进度" value={job.value} max={job.maximum} />}
-        <small className="ca-film__hint">{job?.status === 'done' ? '本集已完成，文件保存在 5090 的 F 盘，可直接播放或下载。' : `${job ? `任务心跳：${Math.max(0, Math.floor(Date.now() / 1000 - job.heartbeat))} 秒前。` : ''}制作在 5090 上运行，收起或刷新页面不会重复提交。`}</small>
+        <small className="ca-film__hint">{job?.status === 'done' ? '本集已完成，文件保存在 生成服务端，可直接播放或下载。' : `${job ? `任务心跳：${Math.max(0, Math.floor(Date.now() / 1000 - job.heartbeat))} 秒前。` : ''}制作在 生成服务上运行，收起或刷新页面不会重复提交。`}</small>
         {job?.preview_render && !job.result && <small className="ca-film__hint">配音动态漫画版合成：{job.preview_render.done}/{job.preview_render.total} · {job.preview_render.stage}</small>}
         {(job?.error || error) && <div role="alert" className="ca-film__error">{error || job?.error}</div>}
       </div>

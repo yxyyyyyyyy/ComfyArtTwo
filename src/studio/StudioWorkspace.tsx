@@ -7,13 +7,15 @@ import { productionStatusAtom } from '../ui/EpisodeProduction'
 import { filmActivityAtom, filmOpenAtom } from '../ui/filmState'
 import { Icons } from '../ui/icons'
 import { StudioSidebar } from './StudioBrand'
-import { DRAFT_PREFIX, newStudioProject } from './navigation'
-import { formatDuration, reviseDraft, rolesOf, scenesOf, type StudioDraft, type StudioPlan, type StudioView } from './story'
+import { DRAFT_PREFIX, newCreativeProject, newStudioProject } from './navigation'
+import { formatDuration, isCanvasView, viewMode, reviseDraft, rolesOf, scenesOf, type StudioDraft, type StudioPlan, type StudioView } from './story'
 import '../styles/studio.css'
+import { CreationPage } from './CreationPages'
 
 const NAV = [
-  ['overview', '项目总览', 'grid'], ['script', '故事剧本', 'skill'], ['cast', '角色与声音', 'mic'],
-  ['production', '制作工作台', 'genVideo'], ['film', '成片放映室', 'video'], ['canvas', '高级画布', 'layers'],
+  ['agent', 'Agent 创作', 'agent'], ['image', '图片制作', 'genImage'], ['video', '视频制作', 'genVideo'],
+  ['overview', '项目总览', 'grid'], ['script', '剧本与分镜', 'skill'], ['cast', '角色与声音', 'mic'],
+  ['production', '制作工作台', 'genVideo'], ['film', '成片放映室', 'video'], ['canvas', '自由画布', 'layers'],
 ] as const
 
 export function StudioWorkspace({ editor, view, onView }: { editor: Editor; view: StudioView; onView: (view: StudioView) => void }) {
@@ -41,6 +43,7 @@ export function StudioWorkspace({ editor, view, onView }: { editor: Editor; view
   const completed = job ? job.clips_done ?? 0 : plan?.shots?.filter((s) => s.src).length ?? 0
   const cues = scenes.reduce((n, s) => n + s.narration.length, 0)
   const label = NAV.find(([id]) => id === view)![1]
+  const creationMode = viewMode(view)
   const updateDraft = (patch: Partial<StudioDraft>) => {
     editor.updateDocumentSettings({ meta: reviseDraft(editor.getDocumentSettings().meta, patch) as typeof doc.meta })
   }
@@ -56,7 +59,7 @@ export function StudioWorkspace({ editor, view, onView }: { editor: Editor; view
       const data = JSON.parse(text)
       if (typeof data.source !== 'string' || typeof data.title !== 'string' || typeof data.direction !== 'string') throw new Error('剧本草稿格式无效。')
       const castNotes = data.castNotes && typeof data.castNotes === 'object' && !Array.isArray(data.castNotes) && Object.values(data.castNotes).every((v) => typeof v === 'string') ? data.castNotes : {}
-      editor.updateDocumentSettings({ name: data.title || '未命名漫剧', meta: reviseDraft(editor.getDocumentSettings().meta, { source: data.source, direction: data.direction, castNotes }) as typeof doc.meta })
+      editor.updateDocumentSettings({ name: data.title || '未命名项目', meta: reviseDraft(editor.getDocumentSettings().meta, { source: data.source, direction: data.direction, castNotes }) as typeof doc.meta })
       void saveNow().then(() => {
         if (saveStateAtom.get().state !== 'saved') { setError('剧本已载入，保存暂未成功；恢复连接后请点击重试保存。'); return }
         sessionStorage.removeItem(DRAFT_PREFIX + token)
@@ -66,7 +69,7 @@ export function StudioWorkspace({ editor, view, onView }: { editor: Editor; view
   }, [editor])
 
   useEffect(() => {
-    document.title = `${doc.name || '未命名漫剧'} · 幕间`
+    document.title = `${doc.name || '未命名项目'} · 幕间`
   }, [doc.name])
 
   useEffect(() => { setSelected((i) => Math.max(0, Math.min(i, scenes.length - 1))) }, [scenes.length])
@@ -117,16 +120,17 @@ export function StudioWorkspace({ editor, view, onView }: { editor: Editor; view
   const phase = job?.status === 'done' || result ? 4 : job ? stages.findIndex((s) => s.key === job.phase) : scenes.length ? activity.busy && /配音|旁白/.test(activity.label) ? 2 : activity.busy && /合成|导出|混音/.test(activity.label) ? 3 : 1 : -1
   const progress = <div className="mj-pipeline">{stages.map((s, i) => <div key={s.key} data-state={phase > i ? 'done' : phase === i ? 'active' : 'waiting'}><span className="mj-pipeline__number">{phase > i ? Icons.check : String(i + 1).padStart(2, '0')}</span><span><strong>{s.label}</strong><small>{s.count}</small></span>{i < 3 && <span className="mj-pipeline__line" />}</div>)}</div>
 
-  return <div className="mj-shell" onKeyDown={(e) => { if (view !== 'canvas') e.stopPropagation() }}>
-    <StudioSidebar active={view} onHome={() => void leave(() => openView('home'))} onNew={() => void leave(() => newStudioProject())} items={NAV.map(([id, name, icon]) => ({ id, label: name, icon: Icons[icon], onClick: () => onView(id) }))} />
-    <header className="mj-project-header"><div className="mj-breadcrumb"><button type="button" onClick={() => void leave(() => openView('projects'))}>我的项目</button><span>/</span><input aria-label="漫剧项目名称" value={doc.name} placeholder="未命名漫剧" onChange={(e) => editor.updateDocumentSettings({ name: e.target.value })} /></div><div className="mj-header-actions"><button type="button" className="mj-save" data-error={saved.state === 'error' || undefined} onClick={() => void saveNow()} title={saved.error}><i />{saved.state === 'saved' ? '已保存' : saved.state === 'error' ? '重试保存' : '正在保存…'}</button><button type="button" className="mj-button mj-button--primary" onClick={() => result ? onView('film') : hasGenerated ? openTask() : source.trim() ? void prepare() : onView('script')}><span className="ca-icon">{result ? Icons.video : Icons.genVideo}</span>{result ? '播放成片' : hasGenerated ? '继续制作' : '开始制作'}</button></div></header>
-    {view !== 'canvas' && <main className="mj-workspace" key={view}>
-      <div className="mj-page-heading"><div><span className="mj-eyebrow">{view === 'overview' ? 'STORY IN THE MAKING' : `MUJIAN / ${view.toUpperCase()}`}</span><h1>{label}</h1></div><span className="mj-format">{plan?.ratio ?? '9:16'} <i /> {plan?.production ? '动态漫剧' : '本地创作'}</span></div>
+  return <div className="mj-shell" onKeyDown={(e) => { if (!isCanvasView(view)) e.stopPropagation() }}>
+    <StudioSidebar active={view} onHome={() => void leave(() => openView('home'))} onNew={() => void leave(() => newCreativeProject())} items={NAV.filter(([id]) => ['agent', 'image', 'video', 'canvas', 'script'].includes(id) || !!plan?.production || !!plan?.shots?.length || !!source.trim()).map(([id, name, icon]) => ({ id, label: name, icon: Icons[icon], onClick: () => onView(id) }))} />
+    <header className="mj-project-header"><div className="mj-breadcrumb"><button type="button" onClick={() => void leave(() => openView('projects'))}>我的项目</button><span>/</span><input aria-label="项目名称" value={doc.name} placeholder="未命名项目" onChange={(e) => editor.updateDocumentSettings({ name: e.target.value })} /></div><div className="mj-header-actions"><button type="button" className="mj-save" data-error={saved.state === 'error' || undefined} onClick={() => void saveNow()} title={saved.error}><i />{saved.state === 'saved' ? '已保存' : saved.state === 'error' ? '重试保存' : '正在保存…'}</button><button type="button" className="mj-button mj-button--primary" onClick={() => creationMode ? onView('canvas') : isCanvasView(view) ? void leave(() => newCreativeProject()) : result ? onView('film') : hasGenerated ? openTask() : source.trim() ? void prepare() : onView('script')}><span className="ca-icon">{creationMode ? Icons.layers : isCanvasView(view) ? Icons.plus : result ? Icons.video : Icons.genVideo}</span>{creationMode ? '打开画布' : isCanvasView(view) ? '新建项目' : result ? '播放成片' : hasGenerated ? '继续制作' : '开始制作'}</button></div></header>
+    {!isCanvasView(view) && <main className="mj-workspace" key={view}>
+      <div className="mj-page-heading"><div><span className="mj-eyebrow">{view === 'overview' ? 'STORY IN THE MAKING' : `MUJIAN / ${view.toUpperCase()}`}</span><h1>{label}</h1></div><span className="mj-format">{creationMode ? creationMode === 'agent' ? '对话与设计' : creationMode === 'image' ? '生成与编辑' : '画面与动态' : plan?.ratio ?? '9:16'} <i /> {creationMode ? '创作空间' : plan?.production ? '动态漫剧' : '本地创作'}</span></div>
       {error && <div className="mj-error" role="alert">{error}<button type="button" onClick={() => setError('')}>关闭</button></div>}
       {(disconnected || job?.error) && <div className="mj-error" role="alert">{disconnected ? '制作服务暂时断开，正在重连；已完成素材仍可查看。' : job?.error}</div>}
 
+      {creationMode && <CreationPage editor={editor} mode={creationMode} onView={onView} onError={setError} />}
       {view === 'overview' && <>
-        <section className="mj-project-hero">{poster && <img src={poster} alt="本集场景" />}<div className="mj-project-hero__shade" /><div><span className="mj-pill">{result ? '成片已就绪' : scenes.length ? '故事正在成形' : '新的故事，即将开场'}</span><h2>{doc.name || '你的下一个故事'}</h2><p>{plan?.production ? `${scenes.length} 个主要场景 · ${cues} 段配音 · 动态漫画与人物动画` : '写好故事，确认画面与对白，再开始制作。'}</p><button type="button" className="mj-button mj-button--primary" onClick={() => onView(result ? 'film' : source ? 'production' : 'script')}><span className="ca-icon">{result ? Icons.video : Icons.genVideo}</span>{result ? '进入成片放映室' : source ? '进入制作工作台' : '开始写剧本'}<span>→</span></button></div><span className="mj-project-hero__foot">A STORY BY YOU / MADE LOCALLY</span></section>
+        <section className="mj-project-hero">{poster && <img src={poster} alt="本集场景" />}<div className="mj-project-hero__shade" /><div><span className="mj-pill">{result ? '成片已就绪' : scenes.length ? '故事正在成形' : '新的故事，即将开场'}</span><h2>{doc.name || '你的下一个故事'}</h2><p>{plan?.production ? `${scenes.length} 个主要场景 · ${cues} 段配音 · 动态漫画与人物动画` : '写好故事，确认画面与对白，再开始制作。'}</p><button type="button" className="mj-button mj-button--primary" onClick={() => onView(result ? 'film' : source ? 'production' : 'script')}><span className="ca-icon">{creationMode ? Icons.layers : isCanvasView(view) ? Icons.plus : result ? Icons.video : Icons.genVideo}</span>{result ? '进入成片放映室' : source ? '进入制作工作台' : '开始写剧本'}<span>→</span></button></div><span className="mj-project-hero__foot">A STORY BY YOU / MADE LOCALLY</span></section>
         <div className="mj-stat-row"><div><span>故事场景</span><strong>{scenes.length || '—'}<small>个</small></strong></div><div><span>对白与旁白</span><strong>{cues || '—'}<small>段</small></strong></div><div><span>已生成动画</span><strong>{job ? completed : completed || '—'}<small>段</small></strong></div><div><span>成片时长</span><strong>{formatDuration(job?.seconds)}<small>{result ? '可播放' : '制作后确认'}</small></strong></div></div>
         <div className="mj-section-title"><h2>制作流程</h2><button type="button" className="mj-text-button" onClick={() => onView('production')}>查看制作详情 →</button></div>{progress}
         <div className="mj-section-title"><h2>故事场景</h2><button type="button" className="mj-text-button" onClick={() => onView('script')}>查看剧本 →</button></div>
@@ -142,8 +146,8 @@ export function StudioWorkspace({ editor, view, onView }: { editor: Editor; view
         {job && !result && <div className="mj-production-controls"><span>暂停与继续仅作用于本项目，已完成素材保留。</span><button type="button" className="mj-button" disabled={controlBusy || disconnected} onClick={() => void control(!['paused', 'error', 'review'].includes(job.status))}>{['paused', 'error', 'review'].includes(job.status) ? '继续制作' : '暂停制作'}</button></div>}
       </>}
 
-      {view === 'film' && (result ? <div className="mj-screening-layout"><section className="mj-screening"><div className="mj-screening__top"><span>NOW SHOWING</span><span>{formatDuration(mediaInfo?.seconds ?? job?.seconds)}</span></div><video key={result} aria-label="完整漫剧成片" controls preload="metadata" poster={poster} src={result} onLoadedMetadata={(e) => setMediaInfo({ seconds: e.currentTarget.duration, width: e.currentTarget.videoWidth, height: e.currentTarget.videoHeight })} /><div className="mj-screening__bottom"><span>{doc.name}</span><span>MUJIAN STUDIO</span></div></section><aside className="mj-inspector mj-film-info"><span className="mj-pill">成片已就绪</span><h2>{doc.name}</h2><p>{plan?.production ? '人物动画片段与动态漫画结合，配有中文角色声音、字幕与氛围音效。' : '你的作品已合成，可在这里完整播放与下载。'}</p><dl><div><dt>时长</dt><dd>{formatDuration(mediaInfo?.seconds ?? job?.seconds)}</dd></div><div><dt>画幅</dt><dd>{plan?.ratio ?? '待读取'}</dd></div><div><dt>分辨率</dt><dd>{mediaInfo ? `${mediaInfo.width} × ${mediaInfo.height}` : '读取视频后显示'}</dd></div><div><dt>场景</dt><dd>{scenes.length} 个</dd></div>{!!cues && <div><dt>配音段落</dt><dd>{cues} 段</dd></div>}</dl><a className="mj-button mj-button--primary" href={result} download><span className="ca-icon">{Icons.export}</span>下载完整视频</a><button type="button" className="mj-button" onClick={() => onView('production')}>查看场景素材</button><button type="button" className="mj-text-button" onClick={() => onView('script')}>修订剧本，制作下一版 →</button></aside></div> : <div className="mj-empty mj-empty--film"><span className="ca-icon">{Icons.video}</span><h2>你的故事，等待开场。</h2><p>成片完成后，你可以在这里播放、查看信息和下载视频。</p><button type="button" className="mj-button mj-button--primary" onClick={() => onView('production')}>查看制作进度 →</button></div>)}
+      {view === 'film' && (result ? <div className="mj-screening-layout"><section className="mj-screening"><div className="mj-screening__top"><span>NOW SHOWING</span><span>{formatDuration(mediaInfo?.seconds ?? job?.seconds)}</span></div><video key={result} aria-label="完整视频成片" controls preload="metadata" poster={poster} src={result} onLoadedMetadata={(e) => setMediaInfo({ seconds: e.currentTarget.duration, width: e.currentTarget.videoWidth, height: e.currentTarget.videoHeight })} /><div className="mj-screening__bottom"><span>{doc.name}</span><span>MUJIAN STUDIO</span></div></section><aside className="mj-inspector mj-film-info"><span className="mj-pill">成片已就绪</span><h2>{doc.name}</h2><p>{plan?.production ? '人物动画片段与动态漫画结合，配有中文角色声音、字幕与氛围音效。' : '你的作品已合成，可在这里完整播放与下载。'}</p><dl><div><dt>时长</dt><dd>{formatDuration(mediaInfo?.seconds ?? job?.seconds)}</dd></div><div><dt>画幅</dt><dd>{plan?.ratio ?? '待读取'}</dd></div><div><dt>分辨率</dt><dd>{mediaInfo ? `${mediaInfo.width} × ${mediaInfo.height}` : '读取视频后显示'}</dd></div><div><dt>场景</dt><dd>{scenes.length} 个</dd></div>{!!cues && <div><dt>配音段落</dt><dd>{cues} 段</dd></div>}</dl><a className="mj-button mj-button--primary" href={result} download><span className="ca-icon">{Icons.export}</span>下载完整视频</a><button type="button" className="mj-button" onClick={() => onView('production')}>查看场景素材</button><button type="button" className="mj-text-button" onClick={() => onView('script')}>修订剧本，制作下一版 →</button></aside></div> : <div className="mj-empty mj-empty--film"><span className="ca-icon">{Icons.video}</span><h2>你的故事，等待开场。</h2><p>成片完成后，你可以在这里播放、查看信息和下载视频。</p><button type="button" className="mj-button mj-button--primary" onClick={() => onView('production')}>查看制作进度 →</button></div>)}
     </main>}
-    <div className="mj-live-bar" role="status"><span><i data-busy={activity.busy || undefined} />{disconnected ? '制作服务正在重连' : activity.busy ? activity.label || '正在制作' : result ? '成片已完成 · 随时播放与下载' : '项目已就绪 · 从故事开始'}</span>{result && view === 'film' ? <a href={result} download>下载完整视频 ↓</a> : result ? <button type="button" onClick={() => onView('film')}>播放成片 →</button> : <button type="button" onClick={openTask}>查看制作任务 →</button>}</div>
+    <div className="mj-live-bar" role="status"><span><i data-busy={activity.busy || undefined} />{disconnected ? '制作服务正在重连' : activity.busy ? activity.label || '正在制作' : result ? '成片已完成 · 随时播放与下载' : '项目已就绪 · 开始创作'}</span>{result && view === 'film' ? <a href={result} download>下载完整视频 ↓</a> : result ? <button type="button" onClick={() => onView('film')}>播放成片 →</button> : <button type="button" onClick={openTask}>查看制作任务 →</button>}</div>
   </div>
 }

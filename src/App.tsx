@@ -84,7 +84,8 @@ import { Zoom } from './ui/Zoom'
 import { lang, t } from './i18n'
 import { uuid } from './id'
 import { StudioWorkspace } from './studio/StudioWorkspace'
-import { studioView, type StudioView } from './studio/story'
+import { isCanvasView, studioView, viewMode, type StudioView } from './studio/story'
+import { agentModeAtom } from './agent'
 
 const CHANNEL = 'comfyart-projects'
 const TAB = uuid()
@@ -131,11 +132,10 @@ export function App({ id }: { id: string }) {
   const [ready, setReady] = useState(false)
   const [studio, setStudio] = useState<StudioView>(() => {
     const params = new URL(location.href).searchParams
-    return params.has('studio') ? studioView(params.get('studio')) : ['ask', 'mode', 'ref', 'skill', 'tool'].some((key) => params.has(key)) ? 'canvas' : 'overview'
+    return params.has('studio') ? studioView(params.get('studio')) : params.get('mode') === 'image' ? 'image' : params.get('mode') === 'video' ? 'video' : 'agent'
   })
   const changeStudio = (view: StudioView) => {
     setStudio(view)
-    if (view === 'canvas') chatViewAtom.set('closed')
     const url = new URL(location.href)
     url.searchParams.set('studio', view)
     history.replaceState(null, '', url)
@@ -149,8 +149,10 @@ export function App({ id }: { id: string }) {
   const dark = useValue('dark mode', () => editor?.user.getIsDarkMode() ?? false, [editor])
 
   useEffect(() => {
-    if (new URL(location.href).searchParams.get('studio') === 'canvas') chatViewAtom.set('closed')
-  }, [])
+    const mode = viewMode(studio)
+    if (mode) { agentModeAtom.set(mode); chatViewAtom.set('open') }
+    else if (studio === 'canvas') chatViewAtom.set('closed')
+  }, [studio])
 
   useEffect(() => {
     if (editor) markDark(dark)
@@ -182,6 +184,8 @@ export function App({ id }: { id: string }) {
         if (!alive) return
         if (snap) loadSnapshot(editor.store, snap)
         const doc = editor.getDocumentSettings()
+        const params = new URL(location.href).searchParams
+        if (!params.has('studio') && !params.has('mode') && !params.has('ask') && doc.meta.videoStory) setStudio('overview')
         const kit = new URL(location.href).searchParams.get('kit')
         if (!snap && !('brandKit' in doc.meta)) editor.updateDocumentSettings({ meta: { ...doc.meta, brandKit: kit ?? defaultKitId() } })
         if (kit) {
@@ -232,9 +236,9 @@ export function App({ id }: { id: string }) {
 
   return (
     <>
-    {editor && ready ? <StudioWorkspace editor={editor} view={studio} onView={changeStudio} /> : <div className="mj-loading">幕间 · 正在打开你的故事…</div>}
-    <div className="ca-root mj-canvas-shell" data-chat={chat} data-dock={dock} data-studio-hidden={studio !== 'canvas' || !ready || undefined} aria-hidden={studio !== 'canvas' || !ready} inert={studio !== 'canvas' || !ready}>
-      {editor && chat !== 'closed' && (
+    {editor && ready ? <StudioWorkspace editor={editor} view={studio} onView={changeStudio} /> : <div className="mj-loading">幕间 · 正在打开你的项目…</div>}
+    <div className="ca-root mj-canvas-shell" data-chat={chat} data-dock={dock} data-studio-hidden={!isCanvasView(studio) || !ready || undefined} aria-hidden={!isCanvasView(studio) || !ready} inert={!isCanvasView(studio) || !ready}>
+      {editor && studio === 'canvas' && chat !== 'closed' && (
         <AgentPanel
           editor={editor}
           projectId={id}

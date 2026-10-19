@@ -46,6 +46,7 @@ const REF_LONG = 512
 const isDoc = (f: File) => DOC_ACCEPT.split(',').some((ext) => f.name.toLowerCase().endsWith(ext))
 
 export async function uploadRefs(editor: Editor, files: File[]) {
+  const added: TLShapeId[] = []
   for (const f of files) {
     const kind = f.type.startsWith('video/') ? 'video' : f.type.startsWith('image/') ? 'image' : f.type.startsWith('audio/') ? 'audio' : null
     if (!kind && !isDoc(f)) continue
@@ -65,7 +66,9 @@ export async function uploadRefs(editor: Editor, files: File[]) {
       id = placeMedia(editor, m, f.name, center.x - w / 2, center.y - w * m.h / m.w / 2, w)
     }
     extraRefsAtom.set([...extraRefsAtom.get().filter((x) => x !== id), id])
+    added.push(id)
   }
+  return added
 }
 
 export async function sendToAgent(editor: Editor, text: string, refs: RefShape[], skill: Skill | null, kits: LibraryItem[] = [], docs: ChatDoc[] = [], context = '') {

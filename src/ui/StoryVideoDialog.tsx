@@ -16,7 +16,7 @@ interface Shot extends StoryShot { promptId?: string; submittedAt?: number }
 interface Plan { source: string; direction?: string; shots: Shot[]; ratio: string; resolution: string; voice: boolean; assemblyId?: string; result?: string; firstFrame?: string }
 interface Render { status: string; stage?: string; value?: number; max?: number; position?: number; error?: string; outputs?: { filename: string; subfolder: string; type: string }[] }
 const pause = () => new Promise((r) => setTimeout(r, 2000))
-const friendly = (e: unknown) => e instanceof TypeError || (e instanceof Error && /fetch|network|abort|timeout/i.test(e.message)) ? '连接已中断，任务可能仍在 5090 上执行。保留任务编号，恢复连接后继续查询。' : e instanceof Error ? e.message : String(e)
+const friendly = (e: unknown) => e instanceof TypeError || (e instanceof Error && /fetch|network|abort|timeout/i.test(e.message)) ? '连接已中断，任务可能仍在 生成服务上执行。保留任务编号，恢复连接后继续查询。' : e instanceof Error ? e.message : String(e)
 async function jsonRequest(url: string, body?: unknown) {
   const res = await api(url, { signal: AbortSignal.timeout(15000), ...(body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }) })
   const data = await res.json()
@@ -203,7 +203,7 @@ export function StoryVideoDialog({ editor, source, direction, firstFrame, visibl
         <progress aria-label="已完成镜头进度" value={completed} max={Math.max(1, plan.shots.length)} />
         <div className="ca-film__live" role="status"><strong>{disconnected ? '连接中断 · 正在自动重连' : status}</strong><span>{!disconnected && stage?.stage}{stage?.position ? ` · 队列第 ${stage.position} 位` : ''}{!disconnected && stage?.stage === '视频采样' && stage.max ? ` · ${stage.value}/${stage.max} 步` : ''}{busy && elapsed ? ` · 本镜头用时 ${Math.floor(elapsed / 60)}分${elapsed % 60}秒` : ''}</span></div>
         {busy && stage?.stage === '视频采样' && !!stage.max && <progress aria-label="当前镜头采样进度" value={stage.value} max={stage.max} />}
-        <small className="ca-film__hint">{disconnected ? '任务可能仍在 5090 执行；任务编号已保留，不会自动重复提交。' : busy ? `${lastSeen ? `服务响应于 ${Math.max(0, Math.floor((now - lastSeen) / 1000))} 秒前。` : ''}加载与解码没有可用百分比时会显示实际步骤。` : '已完成的镜头可随时预览；继续制作时自动跳过。'}</small>
+        <small className="ca-film__hint">{disconnected ? '任务可能仍在 生成服务执行；任务编号已保留，不会自动重复提交。' : busy ? `${lastSeen ? `服务响应于 ${Math.max(0, Math.floor((now - lastSeen) / 1000))} 秒前。` : ''}加载与解码没有可用百分比时会显示实际步骤。` : '已完成的镜头可随时预览；继续制作时自动跳过。'}</small>
         {error && <div role="alert" className="ca-film__error">{error}</div>}
       </div>
       <div className="ca-film__layout">

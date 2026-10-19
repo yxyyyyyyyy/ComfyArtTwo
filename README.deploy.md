@@ -45,7 +45,7 @@ npm run test:frontend
 
 ## 视频与漫剧演示
 
-`productions/cellar-episode-01/` 是综合演示，保留示例剧本、角色对白与场景规范。它展示图片、动画片段、配音、字幕和剪辑的组合，并不限定项目只能制作漫剧。
+剧本、角色对白与制作清单属于本地项目数据。可在已忽略的 `productions/<任务编号>/episode.json` 中准备自己的清单，交给制作脚本运行；仓库不附带用户的实际创作内容。图片、动画片段、配音、字幕和剪辑可按任务组合，并不限定项目只能制作漫剧。
 
 `deploy/render-comic-episode.py` 按场景生成素材，`deploy/story-speech.py` 提供 Qwen3-TTS 角色配音，`deploy/render-comic-timeline.py` 按实际声音时长组织字幕与混音，并合成为一条视频。示例采用人物动画片段与动态漫画结合；普通图片、设计和单段视频不需要使用此流程。
 

@@ -1,10 +1,13 @@
 """Exercise the public MCP canvas tools against the open example project."""
-import os
+import argparse
 import json
 from pathlib import Path
 import requests
 
-URL = 'http://127.0.0.1:8188/comfyart/mcp?project=' + requests.utils.quote(os.environ['COMFYART_DEMO_PROJECT'], safe='')
+parser = argparse.ArgumentParser()
+parser.add_argument('--project', required=True, help='Empty local project ID')
+args = parser.parse_args()
+URL = 'http://127.0.0.1:8188/comfyart/mcp?project=' + requests.utils.quote(args.project, safe='')
 
 
 def call(name, arguments):
@@ -47,5 +50,5 @@ text(text='01 / YOUR CANVAS', x=910, y=710, width=226, font_size=17, color='#547
 call('focus', {'ids': [fid]})
 artifacts = Path(__file__).resolve().parents[1] / 'artifacts'
 artifacts.mkdir(exist_ok=True)
-(artifacts / 'demo-frame.json').write_text(json.dumps({'project': os.environ['COMFYART_DEMO_PROJECT'], 'frame': fid}, indent=2))
+(artifacts / 'demo-frame.json').write_text(json.dumps({'project': args.project, 'frame': fid}, indent=2))
 print('MCP canvas editing verified', flush=True)

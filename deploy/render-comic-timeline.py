@@ -178,8 +178,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 '''
 events=[]
 def caption(start,end,style,text): events.append((start,end,style,text))
-caption(0,5.8,'Title',r'{\fad(700,700)\pos(360,525)}地窖囚奴')
-caption(.8,5.8,'Small',r'{\fad(700,700)\pos(360,620)}第一集　地铁消失')
+caption(0,5.8,'Title',r'{\fad(700,700)\pos(360,525)}'+SPEC.get('series_title', SPEC.get('title', '')))
+caption(.8,5.8,'Small',r'{\fad(700,700)\pos(360,620)}'+SPEC.get('episode_title', ''))
 for i,scene in enumerate(SPEC['scenes']):
     caption(bounds[i]+.25,bounds[i]+4.5,'Chapter',r'{\fad(200,450)}'+scene['id']+' / '+scene['title'])
 for cue in timeline:

@@ -6,6 +6,8 @@ import { errorText } from '../jobs'
 import { isPdf, placePdf } from '../pdf'
 
 const GAP = 20
+// ComfyUI's default upload limit; shared by both asset and file-content handlers.
+export const MAX_IMPORTED_FILE_SIZE = 100 * 1024 * 1024
 
 export function importFiles(editor: Editor, accept: string) {
   const input = document.createElement('input')
@@ -49,7 +51,7 @@ export function DropHandlers({ onError }: { onError: (msg: string) => void }) {
       }
       if (!rest.length) return
       const before = new Set(editor.getCurrentPageShapeIds())
-      await defaultHandleExternalFileContent(editor, { point, files: rest }, { toasts, msg })
+      await defaultHandleExternalFileContent(editor, { point, files: rest }, { toasts, msg, maxAssetSize: MAX_IMPORTED_FILE_SIZE })
       const added = editor.getCurrentPageShapes().filter((s) => !before.has(s.id) && s.parentId === editor.getCurrentPageId())
       if (added.length > 1) lineUp(editor, added)
     })

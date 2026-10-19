@@ -104,3 +104,5 @@ python3 deploy/remote.py deploy/setup-story-speech.ps1
 `deploy/story-speech.py` 接受 `--story` JSON 与 `--output` 目录；JSON 的 `narration` 是包含 `id`、`text`、`tone` 的列表。使用模型预置的 `Uncle_Fu` 中文男声、SDPA 和离线权重，逐段输出 WAV 与带时长的 `voice-manifest.json`。`deploy/run-story-speech.ps1` 是本次故事的调用示例。已实际生成九段、约 79 秒中文旁白。
 
 这是独立的短片配音流水线；原有 Kokoro 和 IndexTTS 画布工作流仍按各自依赖报告安装状态。电影素材与剪辑程序保存在 Mac 的 `artifacts/story-eleventh-light-v2/`，没有替换上一版预告片。
+
+完整配音短片已实测生成：8 个原生 960×544 动态镜头，经慢动作插帧、调色、中文字幕和声效混音输出为 1920×1080、87.75 秒 MP4。画布素材和文件导入统一使用 100 MiB 上限，与 ComfyUI 默认上传限制一致，避免其默认 10 MiB 校验拦截正常成片。

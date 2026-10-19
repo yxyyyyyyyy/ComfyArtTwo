@@ -34,7 +34,7 @@ import { CanvasTools } from './ui/CanvasTools'
 import { CommentPanel } from './ui/CommentPanel'
 import { Confirm } from './ui/Confirm'
 import { Dock } from './ui/Dock'
-import { DropHandlers } from './ui/DropHandlers'
+import { DropHandlers, MAX_IMPORTED_FILE_SIZE } from './ui/DropHandlers'
 import { EmbedToolbar, HtmlPreview } from './ui/EmbedToolbar'
 import { Effects } from './ui/Effects'
 import { HistoryDialog } from './ui/HistoryDialog'
@@ -241,6 +241,7 @@ export function App({ id }: { id: string }) {
           <div className="ca-canvas">
             <Tldraw
               assets={assets}
+              maxAssetSize={MAX_IMPORTED_FILE_SIZE}
               assetUrls={assetUrls}
               shapeUtils={shapeUtils}
               tools={tools}

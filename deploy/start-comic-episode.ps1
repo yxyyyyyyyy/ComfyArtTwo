@@ -12,8 +12,8 @@ New-Item -ItemType Directory -Force $dir | Out-Null
 $name = "ComfyArt-Episode-$Id"
 $existing = Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
 if ($existing.State -eq 'Running' -and !$RegisterOnly) { throw 'This episode is already running' }
-$arguments = '-u "' + $source + '\deploy\render-comic-episode.py" --spec "' + $spec + '" --output "' + $dir + '" --phase ' + $Phase
-$action = New-ScheduledTaskAction -Execute "$root\.venv\Scripts\python.exe" -Argument $arguments -WorkingDirectory $source
+$arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $source + '\deploy\run-comic-episode.ps1" -Id ' + $Id + ' -Phase ' + $Phase
+$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arguments -WorkingDirectory $source
 if ($existing) {
     Set-ScheduledTask -TaskName $name -Action $action | Out-Null
 } else {

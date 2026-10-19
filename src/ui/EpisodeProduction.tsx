@@ -33,7 +33,8 @@ export function EpisodeProduction({ editor, spec, visible, onClose }: { editor: 
         const data: Production = await r.json()
         if (!alive) return
         setJob(data); setDisconnected(false)
-        filmActivityAtom.set({ busy: ['running', 'reconnecting', 'review'].includes(data.status), label: `${spec.title} · ${data.stage}` })
+        const activity = data.phase === 'videos' ? `动画 ${data.clips_done || 0}/6 · ${data.stage}${data.stage === '视频采样' ? ` ${data.value}/${data.maximum} 步` : ''}` : data.phase === 'voices' ? `角色配音 ${data.voices_done || 0}/${data.voices_total || 35}` : data.phase === 'images' ? `剧情画面 ${data.images_done || 0}/12` : data.phase === 'render' ? `剪辑字幕 ${data.render?.done || 0}/${data.render?.total || 18}` : data.stage
+        filmActivityAtom.set({ busy: ['running', 'reconnecting', 'review'].includes(data.status), label: activity })
         if (data.status === 'done' && data.result) {
           const src = viewUrl(data.result)
           if (!editor.getCurrentPageShapes().some((s) => fileSrc(editor, s) === src)) {

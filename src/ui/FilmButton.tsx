@@ -5,7 +5,8 @@ import { Icons } from './icons'
 export function FilmButton({ editor, className = '' }: { editor: Editor; className?: string }) {
   const activity = useValue(filmActivityAtom)
   const count = useValue('film count', () => {
-    const plan = editor.getDocumentSettings().meta.videoStory as { shots?: { src?: string; promptId?: string }[] } | undefined
+    const plan = editor.getDocumentSettings().meta.videoStory as { shots?: { src?: string; promptId?: string }[]; production?: unknown; result?: string } | undefined
+    if (plan?.production) return plan.result ? '第一集已完成' : '第一集 · 查看进度'
     if (!plan?.shots) return '开始制作'
     return `镜头 ${plan.shots.filter((s) => s.src).length}/${plan.shots.length}${plan.shots.some((s) => s.promptId && !s.src) ? ' · 有任务可接回' : ''}`
   }, [editor])

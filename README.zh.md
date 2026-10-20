@@ -1,6 +1,8 @@
 # ComfyArt
 
-[English](README.md) | 中文
+> 本页保留上游 ComfyArt 的功能与依赖说明。幕间的最新功能、独立创作页面和数据政策见 [项目说明](README.md)；动漫与写实真人视频的制作方式见 [视频制作说明](docs/native-film.md)。下文的上游宣传片与模型清单不表示当前环境已安装全部可选功能。
+
+[English](README.upstream.md) | 中文
 
 [![ComfyArt 宣传片](docs/media/preview-zh.gif)](docs/media/promo-zh.mp4)
 

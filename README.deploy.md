@@ -69,7 +69,7 @@ GitHub 仅同步源码与公共文档。本地项目、剧本、制作清单、�
 .\deploy\start-directed-film.ps1 -Id my-film
 ```
 
-此命令读取已忽略的 `productions/my-film/episode.json`，创建对应后台任务；示例根目录可通过 `-Root` 调整。运行环境需要 PyAV、NumPy、Pillow、requests，以及合成所需的 SciPy、soundfile、imageio-ffmpeg 和角色配音环境。`deploy/render-directed-timeline.py` 按实际声音长度排布字幕和混音，保持视频原速，不用静图、循环或末帧延长来补足时长。视频会检查可解码性、时长和画面变化；这种检查只能发现近似静止的视频，剧情、动作与角色一致性仍需人工观看确认。
+此命令读取已忽略的 `productions/my-film/episode.json`，创建对应后台任务；示例根目录可通过 `-Root` 调整。运行环境需要 PyAV、NumPy、Pillow、requests，以及合成所需的 SciPy、soundfile、imageio-ffmpeg 和角色配音环境。`deploy/render-directed-timeline.py` 按实际声音长度排布字幕和混音，保持视频原速，不用静图、循环或末帧延长来补足时长。替换原生片段后会刷新合成缓存，未完成的缓存片段会重新生成。视频会检查可解码性、时长和画面变化；这种检查只能发现近似静止的视频，剧情、动作与角色一致性仍需人工观看确认。
 
 ## 部署脚本
 

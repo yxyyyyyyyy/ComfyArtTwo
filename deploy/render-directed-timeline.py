@@ -25,6 +25,24 @@ def read_json(path):
     return json.loads(path.read_text(encoding='utf-8'))
 
 
+def render_fingerprint(spec, manifest, output):
+    sources = []
+    for shot in spec['scenes']:
+        accepted = read_json(output / ('clip-' + shot['id'] + '-accepted.json'))
+        stat = (output / accepted['filename']).stat()
+        sources.append([shot['id'], accepted, stat.st_size, stat.st_mtime_ns])
+    return hashlib.sha256(json.dumps([spec, manifest, sources], ensure_ascii=False, sort_keys=True).encode()).hexdigest()[:12]
+
+
+def cached_clip_matches(path, seconds):
+    try:
+        with av.open(str(path)) as container:
+            return (bool(container.streams.video) and container.duration is not None
+                    and abs(float(container.duration / av.time_base) - seconds) < .03)
+    except (av.FFmpegError, OSError, ValueError):
+        return False
+
+
 def stamp(seconds):
     cs = max(0, round(seconds * 100))
     return f'{cs // 360000}:{cs // 6000 % 60:02}:{cs // 100 % 60:02}.{cs % 100:02}'
@@ -68,7 +86,7 @@ def main():
     total = float(spec['target_seconds'])
     width, height = spec['width'], spec['height']
     manifest = read_json(output / 'voice/voice-manifest.json')
-    fingerprint = hashlib.sha256(json.dumps([spec, manifest], ensure_ascii=False, sort_keys=True).encode()).hexdigest()[:12]
+    fingerprint = render_fingerprint(spec, manifest, output)
     render = output / ('render-' + fingerprint)
     render.mkdir(exist_ok=True)
     ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
@@ -212,10 +230,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     for index, clip in enumerate(clips):
         progress(index, f'合成动态镜头 {index + 1}/{len(clips)}')
         dst = render / f'shot-{index:03}.mp4'
-        if dst.is_file():
-            with av.open(str(dst)) as container:
-                if abs(float(container.duration / av.time_base) - clip['duration']) < .03:
-                    continue
+        if dst.is_file() and cached_clip_matches(dst, clip['duration']):
+            continue
         start, end = clip['start'], clip['start'] + clip['duration']
         rows = [f'Dialogue: 0,{stamp(max(a, start) - start)},{stamp(min(b, end) - start)},{style},,0,0,0,,{text}' for a, b, style, text in events if a < end and b > start]
         (render / f'captions-{index:03}.ass').write_text(header + '\n'.join(rows) + '\n', encoding='utf-8')

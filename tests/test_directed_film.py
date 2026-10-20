@@ -82,3 +82,24 @@ def test_image_cache_keeps_existing_video_paths_and_canonical_files(tmp_path, mo
     assert saved['comfyart_video_cache']['base_path'] == 'existing-video-cache'
     assert saved['comfyart_image_cache']['is_default'] is True
     assert source.read_bytes() == (tmp_path / 'cache/vae/tiny.bin').read_bytes()
+
+
+def test_replaced_native_source_invalidates_render_cache(tmp_path):
+    import json
+    spec = {'scenes': [{'id': '01'}]}
+    (tmp_path / 'clip-01-accepted.json').write_text(json.dumps({'filename': 'native.mp4', 'not_frozen': True}))
+    source = tmp_path / 'native.mp4'
+    source.write_bytes(b'first-approved-source')
+    original = timeline.render_fingerprint(spec, [], tmp_path)
+    assert timeline.render_fingerprint(spec, [], tmp_path) == original
+    source.write_bytes(b'replacement-approved-native-source')
+    assert timeline.render_fingerprint(spec, [], tmp_path) != original
+
+
+def test_interrupted_render_cache_can_be_replaced(tmp_path):
+    cached = tmp_path / 'render.mp4'
+    cached.write_bytes(b'incomplete-video')
+    assert timeline.cached_clip_matches(cached, 3) is False
+    make_clip(cached, True)
+    assert timeline.cached_clip_matches(cached, 3) is True
+    assert timeline.cached_clip_matches(cached, 5) is False

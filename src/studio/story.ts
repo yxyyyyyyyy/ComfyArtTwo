@@ -13,7 +13,7 @@ export interface StudioScene { id: string; title: string; narration: StudioCue[]
 export interface StudioPlan {
   source?: string; result?: string; ratio?: string; resolution?: string
   shots?: { title: string; prompt: string; narration: string; src?: string; promptId?: string; error?: string; duration: number }[]
-  production?: { id: string; title: string; scenes: StudioScene[] }
+  production?: { id: string; title: string; native_only?: boolean; target_seconds?: number; image_count?: number; scenes: StudioScene[] }
 }
 
 export function studioView(value: string | null): StudioView {

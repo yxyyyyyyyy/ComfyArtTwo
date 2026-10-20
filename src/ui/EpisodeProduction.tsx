@@ -5,11 +5,12 @@ import { api, viewUrl, type ImageRef } from '../comfy'
 import { fileSrc, mediaAsset, placeMedia, toMedia } from '../jobs'
 import { saveNow } from '../autosave'
 import { filmActivityAtom } from './filmState'
+import { formatDuration } from '../studio/story'
 
-export interface EpisodeSpec { id: string; title: string; scenes: { id: string; title: string; narration: { role: string; text: string }[] }[] }
+export interface EpisodeSpec { id: string; title: string; target_seconds?: number; native_only?: boolean; image_count?: number; ratio?: string; scenes: { id: string; title: string; narration: { role: string; text: string }[] }[] }
 export interface Production {
-  status: string; phase: string; stage: string; heartbeat: number; error?: string; value?: number; maximum?: number
-  images_done?: number; clips_done?: number; voices_done?: number; voices_total?: number
+  status: string; phase: string; stage: string; heartbeat: number; active_shot?: number; error?: string; value?: number; maximum?: number
+  images_done?: number; images_total?: number; clips_done?: number; clips_total?: number; voices_done?: number; voices_total?: number
   render?: { done: number; total: number; stage: string }
   scenes: { id: string; title: string; panels: ImageRef[]; clip?: ImageRef }[]; result?: ImageRef; preview?: ImageRef; preview_render?: { done: number; total: number; stage: string }; seconds?: number
 }
@@ -24,6 +25,11 @@ export function EpisodeProduction({ editor, spec, visible, onClose }: { editor: 
   const [controlBusy, setControlBusy] = useState(false)
   const [final, setFinal] = useState(false)
   const polling = useRef(false)
+  const sceneCount = spec.scenes.length
+  const imageCount = spec.image_count ?? sceneCount * 2
+  const voiceCount = spec.scenes.reduce((n, scene) => n + scene.narration.length, 0)
+  const duration = job?.seconds ?? spec.target_seconds ?? 360
+  const native = !!spec.native_only
   useEffect(() => {
     let alive = true
     const poll = async () => {
@@ -37,7 +43,9 @@ export function EpisodeProduction({ editor, spec, visible, onClose }: { editor: 
         if (!alive) return
         setJob(data); setDisconnected(false)
         productionStatusAtom.set({ id: spec.id, job: data, disconnected: false })
-        const activity = data.phase === 'videos' ? `动画 ${data.clips_done || 0}/6 · ${data.stage}${data.stage === '视频采样' ? ` ${data.value}/${data.maximum} 步` : ''}` : data.phase === 'voices' ? `角色配音 ${data.voices_done || 0}/${data.voices_total || 35}` : data.phase === 'images' ? `剧情画面 ${data.images_done || 0}/12` : data.phase === 'render' ? `剪辑字幕 ${data.render?.done || 0}/${data.render?.total || 18}` : data.stage
+        const current = typeof data.active_shot === 'number' && spec.scenes[data.active_shot] ? `镜头 ${data.active_shot + 1}/${sceneCount} · ${spec.scenes[data.active_shot].title} · ` : ''
+        const sampling = data.stage?.includes('采样') && data.maximum ? ` ${data.value}/${data.maximum} 步` : ''
+        const activity = data.phase === 'videos' ? `${native ? '动态镜头' : '动画'} ${data.clips_done || 0}/${data.clips_total ?? sceneCount} · ${current}${data.stage}${sampling}` : data.phase === 'voices' ? `角色配音 ${data.voices_done || 0}/${data.voices_total || voiceCount}` : data.phase === 'images' ? `剧情画面 ${data.images_done || 0}/${data.images_total ?? imageCount} · ${current}${data.stage}${sampling}` : data.phase === 'render' ? `剪辑字幕 ${data.render?.done || 0}/${data.render?.total || sceneCount}` : data.stage
         filmActivityAtom.set({ busy: ['running', 'reconnecting', 'review'].includes(data.status), label: activity })
         if (data.status === 'done' && data.result) {
           saving = true
@@ -76,26 +84,26 @@ export function EpisodeProduction({ editor, spec, visible, onClose }: { editor: 
   const scene = job?.scenes[selected]
   const detail = spec.scenes[selected]
   const playable = job?.result || job?.preview
-  const phases = ['images', 'voices', 'videos', 'render', 'done']
+  const phases = native ? ['voices', 'images', 'videos', 'render', 'done'] : ['images', 'voices', 'videos', 'render', 'done']
   const phase = phases.indexOf(job?.phase || 'images')
-  const [done, total] = job?.phase === 'images' ? [job.images_done || 0, 12] : job?.phase === 'videos' ? [job.clips_done || 0, 6] : job?.phase === 'voices' ? [job.voices_done || 0, job.voices_total || 35] : job?.phase === 'render' ? [job.render?.done || 0, job.render?.total || 18] : job?.status === 'done' ? [1, 1] : [0, 1]
-  return createPortal(<div className="ca-modal mj-film-modal" style={{ display: visible ? undefined : 'none' }} role="dialog" aria-modal="true" aria-label="第一集漫剧制作" onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+  const [done, total] = job?.phase === 'images' ? [job.images_done || 0, job.images_total ?? imageCount] : job?.phase === 'videos' ? [job.clips_done || 0, job.clips_total ?? sceneCount] : job?.phase === 'voices' ? [job.voices_done || 0, job.voices_total || voiceCount] : job?.phase === 'render' ? [job.render?.done || 0, job.render?.total || sceneCount] : job?.status === 'done' ? [1, 1] : [0, 1]
+  return createPortal(<div className="ca-modal mj-film-modal" style={{ display: visible ? undefined : 'none' }} role="dialog" aria-modal="true" aria-label="漫剧制作进度" onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
     <div className="ca-modal__card ca-film">
-      <div className="ca-film__head"><div><strong>{spec.title}</strong><small>约 6 分钟 · 9:16 · 动态漫画 / 角色对白 / 中文字幕</small></div><button className="ca-panel__secondary" onClick={onClose}>收起工作台</button></div>
+      <div className="ca-film__head"><div><strong>{spec.title}</strong><small>目标 {formatDuration(duration)} · {spec.ratio ?? '9:16'} · {native ? '全动态镜头 / 分角色配音 / 中文字幕' : '动态漫画 / 角色对白 / 中文字幕'}</small></div><button className="ca-panel__secondary" onClick={onClose}>收起工作台</button></div>
       <div className="ca-film__progress">
-        <div className="ca-film__steps">{['① 剧情画面', '② 分角色配音', '③ 关键动画', '④ 剪辑字幕'].map((label, i) => <span key={label} data-active={phase >= i || undefined}>{label}</span>)}</div>
-        <div className="ca-film__meter"><strong>{job?.status === 'done' ? '完整一集已完成' : job?.phase === 'images' ? '漫画画面' : job?.phase === 'videos' ? '关键动作动画' : job?.phase === 'voices' ? '角色配音' : '制作进度'} {done}/{total}</strong><span>6 个主要场景 · 自动合成一条视频</span></div>
+        <div className="ca-film__steps">{(native ? ['① 分角色配音', '② 镜头画面', '③ 动态镜头', '④ 剪辑字幕'] : ['① 剧情画面', '② 分角色配音', '③ 关键动画', '④ 剪辑字幕']).map((label, i) => <span key={label} data-active={phase >= i || undefined}>{label}</span>)}</div>
+        <div className="ca-film__meter"><strong>{job?.status === 'done' ? '完整成片已完成' : job?.phase === 'images' ? '漫画画面' : job?.phase === 'videos' ? native ? '动作镜头' : '关键动作动画' : job?.phase === 'voices' ? '角色配音' : '制作进度'} {done}/{total}</strong><span>{sceneCount} 个{native ? '动作镜头' : '主要场景'} · 自动合成一条视频</span></div>
         <progress aria-label="当前制作阶段进度" value={done} max={total} />
-        <div className="ca-film__live" role="status"><strong>{disconnected ? '连接暂时中断 · 正在重连' : job?.status === 'done' ? '第一集已完成 · 可直接播放或下载' : job?.status === 'paused' ? '制作已暂停 · 已完成素材保留' : (job?.phase === 'render' ? job.render?.stage : '') || job?.stage || '正在连接制作任务'}</strong><span>{job?.stage === '视频采样' && job.maximum ? `${job.value}/${job.maximum} 步` : ''}</span></div>
-        {!disconnected && job?.stage === '视频采样' && !!job.maximum && <progress aria-label="关键动画采样进度" value={job.value} max={job.maximum} />}
+        <div className="ca-film__live" role="status"><strong>{disconnected ? '连接暂时中断 · 正在重连' : job?.status === 'done' ? '成片已完成 · 可直接播放或下载' : job?.status === 'paused' ? '制作已暂停 · 已完成素材保留' : (job?.phase === 'render' ? job.render?.stage : '') || job?.stage || '正在连接制作任务'}</strong><span>{job?.stage?.includes('采样') && job.maximum ? `${job.value}/${job.maximum} 步` : ''}</span></div>
+        {!disconnected && job?.stage?.includes('采样') && !!job.maximum && <progress aria-label="关键动画采样进度" value={job.value} max={job.maximum} />}
         <small className="ca-film__hint">{job?.status === 'done' ? '本集已完成，文件保存在 生成服务端，可直接播放或下载。' : `${job ? `任务心跳：${Math.max(0, Math.floor(Date.now() / 1000 - job.heartbeat))} 秒前。` : ''}制作在 生成服务上运行，收起或刷新页面不会重复提交。`}</small>
         {job?.preview_render && !job.result && <small className="ca-film__hint">配音动态漫画版合成：{job.preview_render.done}/{job.preview_render.total} · {job.preview_render.stage}</small>}
         {(job?.error || error) && <div role="alert" className="ca-film__error">{error || job?.error}</div>}
       </div>
       <div className="ca-film__layout">
-        <nav className="ca-film__nav" aria-label="第一集主要场景">{spec.scenes.map((s, i) => <button key={s.id} className="ca-film__navitem" data-on={!final && selected === i || undefined} onClick={() => { setSelected(i); setFinal(false) }}><b>{s.id}</b><span>{s.title}<small>{job?.scenes[i]?.clip ? '✓ 动画素材已完成' : job?.scenes[i]?.panels.length ? '✓ 剧情画面已生成' : '待生成'}</small></span></button>)}{playable && <button className="ca-film__navitem" data-on={final || undefined} onClick={() => setFinal(true)}>▶ {job?.result ? '播放完整第一集' : '播放动态漫画版预览'}</button>}</nav>
+        <nav className="ca-film__nav" aria-label="镜头与场景">{spec.scenes.map((s, i) => <button key={s.id} className="ca-film__navitem" data-on={!final && selected === i || undefined} onClick={() => { setSelected(i); setFinal(false) }}><b>{s.id}</b><span>{s.title}<small>{job?.scenes[i]?.clip ? '✓ 动画素材已完成' : job?.scenes[i]?.panels.length ? '✓ 剧情画面已生成' : '待生成'}</small></span></button>)}{playable && <button className="ca-film__navitem" data-on={final || undefined} onClick={() => setFinal(true)}>▶ {job?.result ? '播放完整成片' : '播放动态漫画版预览'}</button>}</nav>
         <div className="ca-film__content">
-          {final && playable ? <><h3>{job?.result ? '第一集完整成片' : '第一集配音动态漫画版 · 人物动作动画尚未完成'} · 360 秒</h3><video className="ca-film__preview ca-episode-video" controls preload="metadata" poster={job?.scenes[0]?.panels[0] ? viewUrl(job.scenes[0].panels[0]) : undefined} src={viewUrl(playable)} /><a href={viewUrl(playable)} download>下载六分钟视频</a></> : <>
+          {final && playable ? <><h3>{job?.result ? '完整成片' : '配音动态漫画版 · 人物动作动画尚未完成'} · {formatDuration(duration)}</h3><video className="ca-film__preview ca-episode-video" controls preload="metadata" poster={job?.scenes[0]?.panels[0] ? viewUrl(job.scenes[0].panels[0]) : undefined} src={viewUrl(playable)} /><a href={viewUrl(playable)} download>下载完整视频</a></> : <>
             <h3>{detail.title}</h3>
             {scene?.clip && <video className="ca-film__preview ca-episode-video" controls preload="metadata" poster={scene.panels[0] ? viewUrl(scene.panels[0]) : undefined} src={viewUrl(scene.clip)} />}
             {!!scene?.panels.length ? <div className="ca-episode-panels">{scene.panels.map((ref) => <img key={ref.filename} src={viewUrl(ref)} alt={detail.title + '剧情画面'} />)}</div> : <div className="ca-film__empty">正在按人物与情节生成本场景画面</div>}
@@ -103,7 +111,7 @@ export function EpisodeProduction({ editor, spec, visible, onClose }: { editor: 
           </>}
         </div>
       </div>
-      <div className="ca-panel__foot ca-film__foot"><span>素材与进度保存在当前项目。</span>{job && ['paused', 'error', 'review'].includes(job.status) ? <button className="ca-panel__primary" disabled={controlBusy} onClick={() => void control(false)}>继续整集制作</button> : job?.status !== 'done' ? <button className="ca-panel__secondary" disabled={controlBusy} onClick={() => void control(true)}>暂停本集任务</button> : <button className="ca-panel__primary" onClick={() => setFinal(true)}>播放完整第一集</button>}</div>
+      <div className="ca-panel__foot ca-film__foot"><span>素材与进度保存在当前项目。</span>{job && ['paused', 'error', 'review'].includes(job.status) ? <button className="ca-panel__primary" disabled={controlBusy} onClick={() => void control(false)}>继续整集制作</button> : job?.status !== 'done' ? <button className="ca-panel__secondary" disabled={controlBusy} onClick={() => void control(true)}>暂停本集任务</button> : <button className="ca-panel__primary" onClick={() => setFinal(true)}>播放完整成片</button>}</div>
     </div>
   </div>, document.body)
 }

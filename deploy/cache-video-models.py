@@ -11,6 +11,11 @@ FILES = {
     'vae': ['minimax_h3_video_vae_fp16.safetensors', 'minimax_h3_audio_vae_fp32.safetensors'],
     'loras': ['minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors'],
 }
+IMAGE_FILES = {
+    'diffusion_models': ['z_image_turbo_bf16.safetensors', 'qwen_image_2.1_int8_convrot.safetensors'],
+    'text_encoders': ['qwen_3_4b.safetensors', 'qwen3vl_8b_int8_convrot.safetensors'],
+    'vae': ['ae.safetensors', 'qwen_image_2.1_vae_bf16.safetensors'],
+}
 
 
 def digest(path):
@@ -25,9 +30,11 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument('--models', type=Path, default=Path(r'F:\ComfyArt\ComfyUI\models'))
     p.add_argument('--cache', type=Path, required=True)
+    p.add_argument('--profile', choices=['video', 'image'], default='video')
     p.add_argument('--config', type=Path, default=Path(r'F:\ComfyArt\comfyart-video-cache.yaml'))
     a = p.parse_args()
-    sources = [(kind, a.models / kind / name) for kind, names in FILES.items() for name in names]
+    files = IMAGE_FILES if a.profile == 'image' else FILES
+    sources = [(kind, a.models / kind / name) for kind, names in files.items() for name in names]
     for _, source in sources:
         if not source.is_file(): raise SystemExit(f'Missing source: {source}')
     a.cache.mkdir(parents=True, exist_ok=True)
@@ -58,7 +65,9 @@ def main():
         manifest_path.write_text(json.dumps({**old, **manifest}, indent=2), encoding='utf-8')
         print('VERIFIED COPY', key, checksum, flush=True)
     # JSON is valid YAML, and escaping Windows paths is handled by the serializer.
-    a.config.write_text(json.dumps({'comfyart_video_cache': {'base_path': str(a.cache), 'is_default': True, **{kind: kind for kind in FILES}}}, indent=2), encoding='utf-8')
+    config = json.loads(a.config.read_text(encoding='utf-8-sig')) if a.config.exists() else {}
+    config['comfyart_' + a.profile + '_cache'] = {'base_path': str(a.cache), 'is_default': True, **{kind: kind for kind in files}}
+    a.config.write_text(json.dumps(config, indent=2), encoding='utf-8')
     print('READY', str(a.config), 'Original models retained on F:', flush=True)
 
 

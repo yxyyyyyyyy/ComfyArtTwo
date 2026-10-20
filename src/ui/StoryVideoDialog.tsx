@@ -8,12 +8,15 @@ import { fileSrc, placeMedia, toMedia } from '../jobs'
 import { annotated, imageToVideoGraph, t2vGraph, VIDEO_AREAS } from '../workflows'
 import { scriptShots, validateShots, type StoryShot } from '../videoStory'
 import { uuid } from '../id'
+import { ask, parseJson } from '../llm'
+import { directorInstructions, parseDirection } from '../filmDirector'
+import { continuityFrame } from '../filmFrame'
 import { filmOpenAtom, filmActivityAtom } from './filmState'
 import { EpisodeProduction, type EpisodeSpec } from './EpisodeProduction'
 import { Icons } from './icons'
 
-interface Shot extends StoryShot { promptId?: string; submittedAt?: number }
-interface Plan { source: string; direction?: string; shots: Shot[]; ratio: string; resolution: string; voice: boolean; assemblyId?: string; result?: string; firstFrame?: string }
+interface Shot extends StoryShot { promptId?: string; submittedAt?: number; scene?: string; action?: string; camera?: string; continuePrevious?: boolean; startFrame?: string }
+interface Plan { source: string; direction?: string; shots: Shot[]; ratio: string; resolution: string; voice: boolean; director?: { version: 1; visualBible: string; targetSeconds: number }; assemblyId?: string; result?: string; firstFrame?: string }
 interface Render { status: string; stage?: string; value?: number; max?: number; position?: number; error?: string; outputs?: { filename: string; subfolder: string; type: string }[] }
 const pause = () => new Promise((r) => setTimeout(r, 2000))
 const friendly = (e: unknown) => e instanceof TypeError || (e instanceof Error && /fetch|network|abort|timeout/i.test(e.message)) ? '连接已中断，任务可能仍在 生成服务上执行。保留任务编号，恢复连接后继续查询。' : e instanceof Error ? e.message : String(e)
@@ -42,10 +45,13 @@ export function StoryVideoDialog({ editor, source, direction, firstFrame, visibl
   const initial: Plan = source && (source !== saved?.source || direction !== saved?.direction && !saved?.shots.some((s) => s.src || s.promptId)) ? { source, direction, shots: shotsFromSource(), ratio: '9:16', resolution: '384p', voice: true, firstFrame } : saved ?? { source, shots: [], ratio: '9:16', resolution: '384p', voice: true, firstFrame }
   const [plan, setPlan] = useState<Plan>(initial)
   const live = useRef(plan)
-  const [busy, setBusy] = useState(false)
+  const [rendering, setBusy] = useState(false)
+  const [planning, setPlanning] = useState(false)
+  const busy = rendering || planning
+  const [sampleSeconds, setSampleSeconds] = useState(saved?.director?.targetSeconds ?? 30)
   const [status, setStatus] = useState(initial.result ? '成片已完成' : initial.shots.some((s) => s.src) ? '已有镜头已保留 · 可继续制作' : '准备分镜')
   const [error, setError] = useState(initial.shots.some((s) => s.error) ? '上次制作在未完成镜头处中断。已完成镜头保留，可从下方继续。' : '')
-  const [selected, setSelected] = useState(Math.max(0, initial.shots.findIndex((s) => !s.src)))
+  const [selected, setSelected] = useState(initial.shots.some((s) => s.src || s.promptId) ? Math.max(0, initial.shots.findIndex((s) => !s.src)) : -1)
   const [active, setActive] = useState(-1)
   const [stage, setStage] = useState<Render | null>(null)
   const [disconnected, setDisconnected] = useState(false)
@@ -61,6 +67,33 @@ export function StoryVideoDialog({ editor, source, direction, firstFrame, visibl
   useEffect(() => {
     if (source && (!saved || source !== saved.source || direction !== saved.direction)) save({})
   }, [])
+  const autoPlan = async (): Promise<boolean> => {
+    if (filmActivityAtom.get().busy || live.current.shots.some((s) => s.src || s.promptId)) return false
+    if (!live.current.source.trim()) { setError('先输入你自己的故事或需要改编的内容。'); return false }
+    stop.current = false
+    setPlanning(true); setError(''); setStatus('AI 正在拆解动作、安排镜头与角色连续性')
+    filmActivityAtom.set({ busy: true, label: 'AI 自动导演 · 规划镜头' })
+    try {
+      const prompt = live.current.source
+      const instructions = directorInstructions(sampleSeconds, live.current.direction)
+      let reply = await ask(prompt, instructions, [])
+      let parsed
+      try { parsed = parseDirection(parseJson(reply), sampleSeconds) }
+      catch (e) {
+        setStatus('AI 正在修正镜头时长与动作安排')
+        reply = await ask(`${prompt}\n\nThe last plan was invalid: ${friendly(e)}. Return a complete corrected plan. Do not omit shots.`, instructions, [])
+        parsed = parseDirection(parseJson(reply), sampleSeconds)
+      }
+      if (prompt !== live.current.source) throw new Error('原稿已变化，请按最新内容重新规划。')
+      const { shots, ...director } = parsed
+      save({ shots, director, assemblyId: undefined, result: undefined })
+      await saveNow()
+      if (saveStateAtom.get().state !== 'saved') throw new Error('导演计划已整理，但项目未保存成功。请恢复连接后保存再制作。')
+      setSelected(0); setStatus(stop.current ? '镜头计划已保存 · 已暂停后续制作' : `已自动安排 ${shots.length} 个动作镜头，约 ${sampleSeconds} 秒`)
+      return !stop.current
+    } catch (e) { setError(friendly(e)); setStatus('自动导演暂停 · 原稿已保留'); return false }
+    finally { setPlanning(false); filmActivityAtom.set({ busy: false, label: '' }) }
+  }
   const edit = (index: number, patch: Partial<Shot>) => save({ shots: live.current.shots.map((s, i) => i === index ? { ...s, ...patch } : s), assemblyId: undefined, result: undefined })
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer) }, [])
   useEffect(() => {
@@ -116,7 +149,7 @@ export function StoryVideoDialog({ editor, source, direction, firstFrame, visibl
     if (!id) {
       setStatus('提交配音合成任务')
       id = uuid().replaceAll('-', ''); save({ assemblyId: id }); await saveNow()
-      try { await jsonRequest('/comfyart/video/assemble', { id, clips: live.current.shots.map((s) => ({ src: s.src, narration: s.narration })), voice: live.current.voice }) }
+      try { await jsonRequest('/comfyart/video/assemble', { id, clips: live.current.shots.map((s) => ({ src: s.src, narration: s.narration, ...(live.current.director ? { motion: true } : {}) })), voice: live.current.voice }) }
       catch (e) {
         if (!(e instanceof TypeError) && !(e instanceof DOMException)) { save({ assemblyId: undefined }); throw e }
         setDisconnected(true); await pause()
@@ -153,10 +186,18 @@ export function StoryVideoDialog({ editor, source, direction, firstFrame, visibl
           if (!promptId) {
             if (!holder || !editor.getShape(holder as TLShapeId)) holder = createGenerator(editor, true, { prompt: s.prompt, ratio: live.current.ratio, resolution: live.current.resolution, duration: s.duration, workflow: 't2v-minimax-h3.api.json' }, false)
             const [a, b] = live.current.ratio.split(':').map(Number)
-            const prompt = `${s.prompt}\nCinematic shot, consistent character appearance and costumes. Natural ambient sound. No subtitles or text overlays.`
+            const prompt = `${s.prompt}\nCinematic shot, consistent character appearance and costumes. Natural ambient sound. ${live.current.director && live.current.voice ? 'No spoken dialogue; only environmental sound.' : ''} No subtitles or text overlays.`
             const area = VIDEO_AREAS[live.current.resolution]
             setStage({ status: 'running', stage: '准备工作流 / 加载配置' })
-            const built = i === 0 && live.current.firstFrame ? await imageToVideoGraph(annotated(live.current.firstFrame), prompt, a / b, s.duration, null, area) : await t2vGraph(prompt, a / b, s.duration, area)
+            let startFrame = s.startFrame || (i === 0 ? live.current.firstFrame : undefined)
+            if (!startFrame && s.continuePrevious) {
+              const previous = live.current.shots[i - 1]
+              if (!previous?.src || !s.scene || previous.scene !== s.scene) throw new Error('缺少同场景的上一镜头，不能接续；请修改接续设置后重试。')
+              setStage({ status: 'running', stage: '提取上一镜头接续画面' })
+              startFrame = await continuityFrame(previous.src)
+              edit(i, { startFrame }); await saveNow()
+            }
+            const built = startFrame ? await imageToVideoGraph(annotated(startFrame), prompt, a / b, s.duration, null, area) : await t2vGraph(prompt, a / b, s.duration, area)
             promptId = uuid()
             edit(i, { promptId, holder, error: undefined, submittedAt: Date.now() }); await saveNow()
             if (saveStateAtom.get().state !== 'saved') { edit(i, { promptId: undefined }); throw new Error('项目尚未保存成功，暂未提交新镜头。恢复连接并保存后可继续。') }
@@ -196,7 +237,7 @@ export function StoryVideoDialog({ editor, source, direction, firstFrame, visibl
   const percent = plan.shots.length ? Math.round(completed / plan.shots.length * 100) : 0
   return createPortal(<div className="ca-modal mj-film-modal" style={{ display: visible ? undefined : 'none' }} role="dialog" aria-modal="true" aria-label="视频工作台" onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
     <div className="ca-modal__card ca-film">
-      <div className="ca-film__head"><div><strong>分镜与制作设置</strong><small>幕间 · 确认画面、旁白和时长后开始制作</small></div><button className="ca-panel__secondary" onClick={onClose}>{busy ? '收起 · 继续制作' : '返回工作台'} {Icons.close}</button></div>
+      <div className="ca-film__head"><div><strong>分镜与制作设置</strong><small>幕间 · 输入故事，AI 自动安排镜头并批量制作</small></div><button className="ca-panel__secondary" onClick={onClose}>{busy ? '收起 · 继续制作' : '返回工作台'} {Icons.close}</button></div>
       <div className="ca-film__progress">
         <div className="ca-film__steps">{['① 剧本分镜', '② 生成镜头', '③ 中文配音', '④ 合成导出'].map((label, i) => <span key={label} data-active={(plan.result ? 4 : phase) >= i || undefined}>{label}</span>)}</div>
         <div className="ca-film__meter"><strong>已完成 {completed} / {plan.shots.length} 镜头</strong><span>{percent}% · {plan.resolution} · {plan.ratio} · 原生镜头 {plan.shots.reduce((n, s) => n + s.duration, 0)} 秒</span></div>
@@ -211,8 +252,9 @@ export function StoryVideoDialog({ editor, source, direction, firstFrame, visibl
         <div className="ca-film__content">
           {(selected === -1 || !s && selected !== -2) && <>
             <h3>1. 输入剧本，拆成可编辑分镜</h3><textarea aria-label="原始剧本" className="ca-panel__prompt" style={{ minHeight: 220 }} placeholder="粘贴故事或剧本；【画面】和【旁白】会自动拆成镜头与配音文本。" disabled={busy} value={plan.source} onChange={(e) => save({ source: e.target.value })} />
-            <button className="ca-panel__secondary" disabled={busy || !plan.source.trim() || plan.shots.some((s) => s.src || s.promptId)} onClick={() => { save({ shots: scriptShots(plan.source), assemblyId: undefined, result: undefined }); setSelected(0) }}>拆分剧本为分镜</button>
-            <p>已有镜头时请在左侧逐镜修改，原稿完整保留。镜头长度按下方设置，不会自动变成整集长片。</p>
+            <div className="ca-film__director"><label>自动导演样片 <select aria-label="自动导演样片时长" disabled={busy || plan.shots.some((s) => s.src || s.promptId)} value={sampleSeconds} onChange={(e) => setSampleSeconds(Number(e.target.value))}><option value={30}>约 30 秒</option><option value={60}>约 60 秒</option></select></label><button className="ca-panel__primary" disabled={busy || !plan.source.trim() || plan.shots.some((s) => s.src || s.promptId)} onClick={() => void autoPlan()}>{planning ? '正在安排动作与镜头…' : 'AI 自动安排镜头'}</button></div>
+            <button className="ca-panel__secondary" disabled={busy || !plan.source.trim() || plan.shots.some((s) => s.src || s.promptId)} onClick={() => { save({ shots: scriptShots(plan.source), director: undefined, assemblyId: undefined, result: undefined }); setSelected(0) }}>按原稿标记拆分（手动模式）</button>
+            <p>AI 会自动提取人物与场景、安排短镜头和可见动作，再批量生成真实视频。同场景的连续镜头可使用上一段的结尾画面；旁白过长时会提示修订，自动导演模式不拉慢画面填时长。样片只覆盖原稿的一段，完整原稿保留。</p>
             <h3>2. 设置视频和声音</h3>
             {plan.firstFrame && <p>首镜头已使用图片参考。</p>}
             <label>画幅比例 <select aria-label="分镜比例" disabled={busy || plan.shots.some((s) => s.promptId || s.src)} value={plan.ratio} onChange={(e) => save({ ratio: e.target.value })}>{['9:16', '16:9', '1:1'].map((r) => <option key={r}>{r}</option>)}</select></label>
@@ -223,6 +265,8 @@ export function StoryVideoDialog({ editor, source, direction, firstFrame, visibl
           {s && selected >= 0 && <section className="ca-film__shot">
             <div className="ca-film__shothead"><h3>{s.title}</h3><select aria-label={`镜头 ${selected + 1} 时长`} disabled={busy || !!s.src || !!s.promptId} value={s.duration} onChange={(e) => edit(selected, { duration: Number(e.target.value) })}>{[5, 10, 15].map((d) => <option key={d} value={d}>{d} 秒</option>)}</select></div>
             {s.src ? <video key={s.src} controls preload="metadata" src={s.src} className="ca-film__preview" /> : <div className="ca-film__empty">{active === selected ? `${stage?.stage || '正在准备'}…` : s.error ? '此镜头中断，已完成镜头不受影响' : s.promptId ? '任务已提交，继续制作可取回进度' : '视频生成后会显示在这里'}</div>}
+            {s.action && <div className="ca-film__director-note"><strong>动作</strong> {s.action}<br /><strong>镜头</strong> {s.camera}</div>}
+            {plan.director && <label><input type="checkbox" disabled={busy || !!s.src || !!s.promptId || !selected || s.scene !== plan.shots[selected - 1]?.scene} checked={!!s.continuePrevious} onChange={(e) => edit(selected, { continuePrevious: e.target.checked, startFrame: undefined })} /> 接续上一镜头画面（仅同场景、同机位连续动作）</label>}
             <label>画面描述<textarea aria-label={`镜头 ${selected + 1} 画面`} className="ca-panel__prompt" style={{ minHeight: 130 }} disabled={busy || !!s.src || !!s.promptId} value={s.prompt} onChange={(e) => edit(selected, { prompt: e.target.value })} /></label>
             <label>中文旁白与字幕<textarea aria-label={`镜头 ${selected + 1} 旁白`} className="ca-panel__prompt" style={{ minHeight: 70 }} placeholder="留空时只保留环境声" disabled={busy} value={s.narration} onChange={(e) => edit(selected, { narration: e.target.value })} /></label>
             {s.error && <div className="ca-film__error">{/Failed to fetch/i.test(s.error) ? '上次连接中断；点击继续制作将核对任务状态。' : s.error}</div>}
@@ -234,9 +278,10 @@ export function StoryVideoDialog({ editor, source, direction, firstFrame, visibl
       </div>
       <div className="ca-panel__foot ca-film__foot">
         <span>{busy ? '收起窗口可继续使用画布；请保持页面打开。' : '分镜 → 生成动态视频 → 配音字幕 → 导出'}</span>
-        {busy ? <button className="ca-panel__secondary" onClick={() => { stop.current = true; setStatus('已请求暂停后续镜头；当前任务会保留') }}>暂停后续镜头</button> : <>
+        {busy ? <button className="ca-panel__secondary" onClick={() => { stop.current = true; setStatus('已请求暂停后续镜头；当前任务会保留') }}>{planning ? '规划完成后暂停制作' : '暂停后续镜头'}</button> : <>
           <button className="ca-panel__secondary" onClick={() => { save({ shots: [...plan.shots, { title: `镜头 ${plan.shots.length + 1}`, prompt: '', narration: '', duration: 5 }] }); setSelected(plan.shots.length) }}>添加镜头</button>
           {completed < plan.shots.length && <button className="ca-panel__secondary" onClick={() => void run(false, true)}>只生成下一个镜头</button>}
+          {!plan.director && !plan.shots.some((s) => s.src || s.promptId) && <button className="ca-panel__primary" disabled={!plan.source.trim()} onClick={() => void autoPlan().then((ready) => { if (ready) return run() })}>AI 自动分镜并制作</button>}
           <button className="ca-panel__primary" disabled={!plan.shots.length} onClick={() => void run(completed === plan.shots.length)}>{completed === plan.shots.length && plan.shots.length ? '配音并合成成片' : completed || plan.shots.some((s) => s.promptId) ? '继续制作 · 跳过已完成' : '开始制作'}</button>
           {plan.result && <button className="ca-panel__secondary" onClick={() => setSelected(-2)}>查看成片</button>}
         </>}

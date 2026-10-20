@@ -2,6 +2,7 @@
 import asyncio
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -126,13 +127,27 @@ def validate_clips(body):
         narration = str(clip.get('narration') or '').strip()
         if len(narration) > 150:
             raise ValueError('单镜头旁白最多 150 字，请拆分。')
-        out.append({'path': str(clip_path(clip['src'])), 'narration': narration})
+        if 'motion' in clip and not isinstance(clip['motion'], bool):
+            raise ValueError('镜头动作保持设置必须为布尔值。')
+        out.append({'path': str(clip_path(clip['src'])), 'narration': narration, **({'motion': clip['motion']} if 'motion' in clip else {})})
     return out
 
 
 def seconds(path):
     with av.open(str(path)) as container:
         return float(container.duration / av.time_base) if container.duration else 0
+
+
+def clip_timing(native, spoken=0, preserve_motion=False):
+    """Director mode keeps real-time video and permits only modest voice acceleration."""
+    if not math.isfinite(native) or native <= 0 or not math.isfinite(spoken) or spoken < 0:
+        raise ValueError('视频或配音的时长无效。')
+    if not preserve_motion:
+        return max(native, spoken + .3) if spoken else native, 1.0
+    rate = max(1.0, (spoken + .15) / native) if spoken else 1.0
+    if rate > 1.25:
+        raise ValueError('配音长于动作镜头，已停止合成以避免画面拖慢。请缩短该镜头的旁白，或增加动作镜头后重新合成。')
+    return native, rate
 
 
 def stamp(t):
@@ -175,7 +190,7 @@ async def assemble(user, jid, clips, voice):
         import imageio_ffmpeg
         ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
         async with _VOICE_LOCK:
-            cues = [{'id': str(i), 'text': c['narration'], 'tone': '低沉克制的悬疑故事旁白，清晰自然，不夸张。'} for i, c in enumerate(clips) if voice and c['narration']]
+            cues = [{'id': str(i), 'text': c['narration'], 'tone': '自然清晰的中文叙述，按文本情绪克制地朗读，不夸张。'} for i, c in enumerate(clips) if voice and c['narration']]
             if cues:
                 if PromptServer.instance.prompt_queue.get_tasks_remaining():
                     raise RuntimeError('视频队列仍有任务，请等待完成后重试合成。')
@@ -198,14 +213,17 @@ async def assemble(user, jid, clips, voice):
                     raise RuntimeError(f'镜头 {i + 1} 没有可读的视频时长。')
                 wav = root / f'voice-{i}.wav'
                 spoken = bool(voice and clip['narration'])
-                length = max(native, await asyncio.to_thread(seconds, wav) + 0.3) if spoken else native
+                try:
+                    length, voice_rate = clip_timing(native, await asyncio.to_thread(seconds, wav) if spoken else 0, clip.get('motion', False))
+                except ValueError as exc:
+                    raise ValueError(f'镜头 {i + 1}：{exc}') from exc
                 args = [ffmpeg, '-y', '-i', src]
                 if spoken:
                     args += ['-i', wav]
                 with av.open(str(src)) as container:
                     has_audio = bool(container.streams.audio)
                 vf = f'setpts={length / native:.7f}*PTS,scale={target_w}:{target_h}:force_original_aspect_ratio=decrease,pad={target_w}:{target_h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24,format=yuv420p'
-                audio = f'[0:a]volume=0.18,apad,atrim=duration={length}[bg];[1:a]apad,atrim=duration={length}[v];[bg][v]amix=inputs=2:normalize=0[a]' if spoken and has_audio else f'[1:a]apad,atrim=duration={length}[a]' if spoken else f'[0:a]apad,atrim=duration={length}[a]' if has_audio else f'anullsrc=r=24000:cl=mono,atrim=duration={length}[a]'
+                audio = f'[0:a]volume=0.18,apad,atrim=duration={length}[bg];[1:a]atempo={voice_rate:.7f},apad,atrim=duration={length}[v];[bg][v]amix=inputs=2:normalize=0[a]' if spoken and has_audio else f'[1:a]atempo={voice_rate:.7f},apad,atrim=duration={length}[a]' if spoken else f'[0:a]apad,atrim=duration={length}[a]' if has_audio else f'anullsrc=r=24000:cl=mono,atrim=duration={length}[a]'
                 args += ['-vf', vf, '-filter_complex', audio, '-map', '0:v:0', '-map', '[a]', '-t', str(length), '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-c:a', 'aac', '-ar', '48000', '-ac', '2', '-movflags', '+faststart', root / f'clip-{i:03}.mp4']
                 await command(args, root, log)
                 if spoken:

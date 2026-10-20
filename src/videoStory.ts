@@ -1,5 +1,5 @@
 /** Script parsing is deterministic: the original script is retained, never sent as one shot. */
-export interface StoryShot { title: string; prompt: string; narration: string; duration: number; src?: string; holder?: string; error?: string }
+export interface StoryShot { title: string; prompt: string; narration: string; duration: number; directed?: boolean; src?: string; holder?: string; error?: string }
 export function isVideoScript(text: string): boolean {
   return text.length > 700 || (text.match(/【画面[^】]*】/g)?.length ?? 0) > 1 || (text.match(/^#{1,3}\s*第.+集/gm)?.length ?? 0) > 1
 }
@@ -40,7 +40,8 @@ export function validateShots(shots: StoryShot[]): string | null {
   if (!shots.length) return '请先添加分镜。'
   if (shots.length > 60) return '本批最多 60 个镜头，请按集分批制作；原始剧本不会截断。'
   for (const [i, shot] of shots.entries()) {
-    if (!shot.prompt.trim() || shot.prompt.length > 900) return `镜头 ${i + 1} 的画面描述需为 1–900 字，请拆分过长镜头。`
+    const limit = shot.directed ? 3500 : 900
+    if (!shot.prompt.trim() || shot.prompt.length > limit) return `镜头 ${i + 1} 的画面描述需为 1–${limit} 字，请拆分过长镜头。`
     if (shot.narration.length > 150) return `镜头 ${i + 1} 的旁白超过 150 字，请拆分。`
     if (![5, 10, 15].includes(shot.duration)) return `镜头 ${i + 1} 的时长应为 5、10 或 15 秒。`
   }

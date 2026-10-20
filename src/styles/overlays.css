@@ -356,3 +356,6 @@
 .ca-film details p { line-height: 1.8; margin: 10px 0; }
 
 .ca-film .ca-episode-video { width: auto; height: min(560px, 55vh); max-width: 100%; aspect-ratio: 9 / 16; align-self: center; flex-shrink: 0; }
+
+.ca-film__director { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px; background: var(--ca-field); border: 1px solid var(--ca-border); border-radius: 10px; }
+.ca-film__director-note { padding: 12px; background: var(--ca-field); border-radius: 8px; line-height: 1.7; }

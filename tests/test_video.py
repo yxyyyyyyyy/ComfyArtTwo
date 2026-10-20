@@ -46,6 +46,22 @@ def test_subtitles_keep_millisecond_timing():
     assert video.stamp(3600) == '01:00:00,000'
 
 
+def test_director_assembly_preserves_real_time_motion():
+    assert video.clip_timing(5, 3, True) == (5, 1.0)
+    length, rate = video.clip_timing(5, 5.5, True)
+    assert length == 5 and 1 < rate < 1.25
+    with pytest.raises(ValueError, match='配音长于动作镜头'):
+        video.clip_timing(5, 12, True)
+    assert video.clip_timing(5, 12, False) == (12.3, 1.0)
+    with pytest.raises(ValueError):
+        video.clip_timing(float('nan'), 3, True)
+
+
+def test_invalid_motion_preservation_value_is_rejected():
+    with pytest.raises(ValueError, match='布尔值'):
+        video.validate_clips({'clips': [{'src': output_clip(), 'motion': 'true'}]})
+
+
 async def test_assembly_failure_is_persisted_and_existing_clips_are_preserved(monkeypatch):
     import sys, types
     monkeypatch.setitem(sys.modules, 'imageio_ffmpeg', types.SimpleNamespace(get_ffmpeg_exe=lambda: '/fake/ffmpeg'))
